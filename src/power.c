@@ -15,6 +15,7 @@
 #define LEN(a)    (sizeof(a) / sizeof((a)[0]))
 
 #include "colors.h"
+#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -219,12 +220,17 @@ main(void)
 		{ 1, on_left },
 	};
 
+	const char *icon;
+
 	set_name("statusblocks-power");
 	clr_init();
+	toggle_init();
+
+	icon = toggle_get(show_pwr) ? icon_power : ascii_power;
 
 	dispatch(buttons, LEN(buttons), NULL);
 
-	printf("%s%s " CLR_NRM "\n", clr_get(clr_pwr), icon_power);
+	printf("%s%s " CLR_NRM "\n", clr_get(clr_pwr), icon);
 
 	return 0;
 }

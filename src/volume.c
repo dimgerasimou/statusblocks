@@ -12,6 +12,7 @@
 #define LEN(a) (sizeof(a) / sizeof((a)[0]))
 
 #include "colors.h"
+#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -284,14 +285,20 @@ main(void)
 		{ 5, on_down },
 	};
 
-	AudioInfo    a[AI_COUNT] = {{0, 0, 0}, {0, 0, 0}};
-	char         v[16] = "";
-	const char  *icon = icons_volume[4];
-	unsigned int volume;
-	unsigned int mute;
+	AudioInfo     a[AI_COUNT] = {{0, 0, 0}, {0, 0, 0}};
+	char          v[16] = "";
+	const char   *icon = "";
+	unsigned int  volume;
+	unsigned int  mute;
+	int           ascii;
 
 	set_name("statusblocks-volume");
 	clr_init();
+	toggle_init();
+
+	ascii = !toggle_get(show_vol);
+	if (!ascii)
+		icon = icons_volume[4];
 
 	getaudioinfo(a);
 
@@ -306,18 +313,29 @@ main(void)
 	}
 
 	if (display_type != 2) {
-		if (volume > 66)
-			icon = icons_volume[3];
-		else if (volume > 33)
-			icon = icons_volume[2];
-		else
-			icon = icons_volume[1];
+		if (ascii) {
+			icon = mute ? ascii_vol_mute_tag : ascii_vol_tag;
+		} else {
+			if (volume > 66)
+				icon = icons_volume[3];
+			else if (volume > 33)
+				icon = icons_volume[2];
+			else
+				icon = icons_volume[1];
 
-		if (mute)
-			icon = icons_volume[0];
+			if (mute)
+				icon = icons_volume[0];
+		}
 	}
 
-	if (display_type != 1) {
+	/*
+	 * display_type == 1 asks for the icon alone, which a Nerd Font glyph
+	 * can carry by shape; the ascii_vol_tag/ascii_vol_mute_tag fallback
+	 * cannot, so the percentage is appended in ascii mode. While muted,
+	 * ascii_vol_mute_tag alone ("M") already conveys the state, so the
+	 * percentage is skipped.
+	 */
+	if ((display_type != 1 || ascii) && !(ascii && mute)) {
 		int pad = volume_padding ? 3 : 0;
 		int n   = snprintf(v, sizeof(v), "%*u%%", pad, volume);
 

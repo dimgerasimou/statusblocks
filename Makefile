@@ -44,13 +44,13 @@ PULSE_LIBS    := $(shell pkg-config --libs libpulse)
 DBUS_CFLAGS   := $(call sysinc,dbus-1)
 DBUS_LIBS     := $(shell pkg-config --libs dbus-1)
 
-# utils.c always needs libnotify; colors.c always needs Xlib.
+# utils.c always needs libnotify; colors.c and toggle.c always need Xlib.
 COMMON_CFLAGS := $(NOTIFY_CFLAGS)
 COMMON_LIBS   := $(NOTIFY_LIBS) -lX11
 
 # Shared objects linked into every block
-UTILS_SRC := $(SRC_DIR)/utils.c $(SRC_DIR)/colors.c
-UTILS_OBJ := $(OBJ_DIR)/utils.o $(OBJ_DIR)/colors.o
+UTILS_SRC := $(SRC_DIR)/utils.c $(SRC_DIR)/colors.c $(SRC_DIR)/toggle.c
+UTILS_OBJ := $(OBJ_DIR)/utils.o $(OBJ_DIR)/colors.o $(OBJ_DIR)/toggle.o
 
 # Block configuration - comment out blocks you don't need
 BLOCKS := time \

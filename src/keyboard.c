@@ -13,6 +13,7 @@
 #define LEN(a) (sizeof(a) / sizeof((a)[0]))
 
 #include "colors.h"
+#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -100,6 +101,7 @@ main(void)
 
 	set_name("statusblocks-keyboard");
 	clr_init();
+	toggle_init();
 
 	dispatch(buttons, LEN(buttons), NULL);
 
@@ -127,7 +129,7 @@ main(void)
 
 	printf("%s", clr_get(clr_kbd));
 
-	if (show_icon)
+	if (toggle_get(show_kbd))
 		printf(" ");
 	printf("%s" CLR_NRM "\n", layout);
 

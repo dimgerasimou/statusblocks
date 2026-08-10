@@ -13,6 +13,7 @@
 #define CAL_DAY_WIDTH 2
 
 #include "colors.h"
+#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -327,6 +328,7 @@ main(void)
 	setlocale(LC_TIME, "");
 
 	clr_init();
+	toggle_init();
 
 	dispatch(buttons, LEN(buttons), NULL);
 
@@ -335,7 +337,7 @@ main(void)
 
 	printf("%s", clr_get(clr_date));
 
-	if (show_icon)
+	if (toggle_get(show_date))
 		printf("%s", icon_date);
 
 	if (lt)

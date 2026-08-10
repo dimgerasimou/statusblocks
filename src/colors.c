@@ -123,7 +123,7 @@ cachepath(char *out, const size_t outsz)
 }
 
 /*
- * The cache is stale if ~/.Xresources is newer than it, which covers the
+ * The cache is stale if xresources_path is newer than it, which covers the
  * usual "edit the file, run xrdb" workflow, or if this executable is newer,
  * which covers a rebuild after editing clr_defaults. $XDG_RUNTIME_DIR is
  * cleared at logout, so a fresh session always rebuilds.
@@ -132,9 +132,7 @@ static int
 cachestale(const char *cache)
 {
 	struct stat cst, other;
-	const char *home;
 	char        xres[PATH_MAX];
-	int         n;
 
 	if (stat(cache, &cst) != 0)
 		return 1;
@@ -142,12 +140,7 @@ cachestale(const char *cache)
 	if (stat("/proc/self/exe", &other) == 0 && other.st_mtime > cst.st_mtime)
 		return 1;
 
-	home = getenv("HOME");
-	if (!home || !*home)
-		return 0;
-
-	n = snprintf(xres, sizeof(xres), "%s/.Xresources", home);
-	if (n < 0 || (size_t)n >= sizeof(xres))
+	if (envexpand(xresources_path, xres, sizeof(xres)) != 0)
 		return 0;
 
 	if (stat(xres, &other) != 0)

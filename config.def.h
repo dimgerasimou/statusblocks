@@ -11,7 +11,7 @@
  * block defines: battery.c does "#define BATTERY_C" before including this
  * file, so it sees the BATTERY BLOCK section and nothing else.
  *
- * That is why names such as show_icon appear several times below without
+ * That is why names such as path_wifi_connect appear several times below without
  * colliding: exactly one section is ever compiled into a given block. It
  * also means a setting placed in the wrong section is silently ignored
  * rather than reported, so keep each one under the block that reads it.
@@ -28,6 +28,15 @@
  */
 static const char term_cmd[] = "st";
 static const char term_title_opt[] = "-t";
+
+/*
+ * Path to the X resources file whose mtime marks the colour/icon cache
+ * stale, e.g. right after you edit it and run `xrdb -merge`. Accepts '~'
+ * and '$VAR' (see envexpand() in utils.h). Point this at whatever file you
+ * actually edit and reload: plenty of setups use something other than the
+ * traditional ~/.Xresources, e.g. ~/.config/xresources/Xresources.
+ */
+static const char xresources_path[] = "~/.Xresources";
 
 /* ============================================================
  * COLOURS
@@ -79,6 +88,37 @@ static const char *const clr_defaults[] = {
 };
 
 /* ============================================================
+ * ICON STYLE
+ * ============================================================ */
+
+/*
+ * Whether each block renders its compiled-in icon (typically a Nerd Font
+ * glyph) or that block's plain-ASCII fallback. 1 selects the icon, 0 the
+ * fallback. Listed in enum Toggle order (see src/include/toggle.h).
+ * Matching entries in the X resource database override these at runtime,
+ * e.g.
+ *
+ *   statusblocks.icon_bat: 0
+ *
+ * A compile-time check in toggle.c fails the build if this list and the
+ * enum ever fall out of step. For battery, bluetooth, internet, power and
+ * volume the icon is the whole block, so their fallback is a short ASCII
+ * tag rather than nothing, and stays distinct from every other block's.
+ */
+static const unsigned int icon_defaults[] = {
+	1,  /* show_bat  battery       */
+	1,  /* show_bt   bluetooth     */
+	1,  /* show_date date/calendar */
+	1,  /* show_kbd  keyboard      */
+	1,  /* show_mem  memory        */
+	1,  /* show_net  internet      */
+	1,  /* show_pwr  power menu    */
+	1,  /* show_sys  system        */
+	1,  /* show_tim  clock         */
+	1,  /* show_vol  volume        */
+};
+
+/* ============================================================
  * BATTERY BLOCK
  * ============================================================ */
 #ifdef BATTERY_C
@@ -96,6 +136,15 @@ static const char *const icons_battery[] = {
 	" ",
 	" ",
 };
+
+/*
+ * Plain-ASCII fallback used when show_bat is 0. ascii_bat_tag is followed
+ * by the live percentage, e.g. "B:87%"; ascii_bat_chg replaces the whole
+ * thing while charging, and ascii_bat_none when no battery is present.
+ */
+static const char ascii_bat_tag[]  = "B:";
+static const char ascii_bat_chg[]  = "CHG";
+static const char ascii_bat_none[] = "B:--";
 #endif
 
 /* ============================================================
@@ -106,6 +155,14 @@ static const char *const icons_battery[] = {
 /* TUI application for bluetooth settings */
 const char *bt_tui_cmd[] = { term_cmd, "bluetuith", NULL };
 
+/*
+ * Plain-ASCII fallback: [0] disabled, [1] enabled. Used in place of
+ * icons_bluetooth when show_bt is 0.
+ */
+static const char *const ascii_bluetooth[] = {
+	"BT-",
+	"BT+",
+};
 
 /* Status icons: [0] disabled, [1] enabled. */
 static const char *const icons_bluetooth[] = {
@@ -119,9 +176,6 @@ static const char *const icons_bluetooth[] = {
  * ============================================================ */
 #ifdef DATE_C
 
-/* Show calendar icon in bar */
-const unsigned int show_icon = 1;
-
 /*
  * First column of the calendar, as a tm_wday value: 1 = Monday (most of
  * Europe), 0 = Sunday (US), 6 = Saturday. Month and weekday names come
@@ -129,7 +183,7 @@ const unsigned int show_icon = 1;
  */
 static const int calendar_week_start = 1;
 
-/* Icon shown in the bar when show_icon is set. */
+/* Icon shown in the bar when show_date is set. */
 static const char icon_date[] = " ";
 
 #endif
@@ -148,8 +202,8 @@ const char *args_tui_internet[] = {
 };
 
 /* WiFi connection script */
-static const char path_wifi_connect[] = "~/.local/bin/dmenu-wifi-prompt";
-const char *args_wifi_connect[] = {"dmenu-wifi-prompt", NULL};
+static const char path_wifi_connect[] = "~/.local/bin/wifi-prompt";
+const char *args_wifi_connect[] = {"wifi-prompt", NULL};
 
 
 /* Bar icons, indexed by connection state. */
@@ -162,6 +216,21 @@ static const char *const icons_internet[] = {
 	"󰤥 ",  /* 5: wifi 3 */
 	"󰤨 ",  /* 6: wifi 4 */
 	"󰤫 ",  /* 7: error */
+};
+
+/*
+ * Plain-ASCII fallback, same order as icons_internet. Used in place of it
+ * when show_net is 0.
+ */
+static const char *const ascii_internet[] = {
+	"down",  /* 0: no primary connection / unknown */
+	"eth",   /* 1: ethernet */
+	"wifi",  /* 2: wifi 0 */
+	"wifi",  /* 3: wifi 1 */
+	"wifi",  /* 4: wifi 2 */
+	"wifi",  /* 5: wifi 3 */
+	"wifi",  /* 6: wifi 4 */
+	"err",   /* 7: error */
 };
 
 /* Notification icons: [0] error, [1] wired, [2] wireless. */
@@ -225,6 +294,12 @@ const unsigned int show_update_count = 1;
 static const char icon_system_kernel[] = "";
 static const char icon_system_pkg[] = "󰏖";
 
+/*
+ * Plain-ASCII tag printed before the pending-update count when show_sys
+ * is 0, so the number isn't left bare (e.g. "U:5").
+ */
+static const char ascii_system_pkg[] = "U:";
+
 /* Notification icons, one per update source. */
 static const char icon_updates_primary[]   = "󰏖";
 static const char icon_updates_secondary[] = "";
@@ -250,8 +325,6 @@ static const char update_watch_path[] = "/var/lib/pacman/local";
  * ============================================================ */
 #ifdef KEYBOARD_C
 
-const unsigned int show_icon = 1;
-
 /*
  * Keyboard layout switching script, run on left click.
  * Requires: a script of your own that cycles the layout. The default
@@ -262,7 +335,7 @@ static const char path_language_switch[] = "~/.local/bin/dwm-xkbnext";
 const char *args_language_switch[] = { "dwm-xkbnext", NULL };
 
 
-/* Icon shown in the bar when show_icon is set. */
+/* Icon shown in the bar when show_kbd is set. */
 static const char icon_keyboard[] = " ";
 #endif
 
@@ -271,13 +344,11 @@ static const char icon_keyboard[] = " ";
  * ============================================================ */
 #ifdef MEMORY_C
 
-const unsigned int show_icon = 1;
-
 /* Task manager, opened on right click. Requires: htop, and term_cmd. */
 const char *args_task_manager[] = { term_cmd, "sh", "-c", "htop", NULL };
 
 
-/* Icon shown in the bar when show_icon is set. */
+/* Icon shown in the bar when show_mem is set. */
 static const char icon_memory[] = " ";
 #endif
 
@@ -306,6 +377,9 @@ const char *args_clipboard_delete[] = {"sh", "-c", "clipdel -d \".*\"", NULL};
 /* Bar icon. */
 static const char icon_power[] = "";
 
+/* Plain-ASCII fallback for icon_power, used when show_pwr is 0. */
+static const char ascii_power[] = "PWR";
+
 /* xmenu prompts. Each line is "<label>\t<value>". */
 static const char menu_power[] = " Shutdown\t0\n Reboot\t1\n\n󰗽 Logout\t2\n Lock\t3\n\n Restart DwmBlocks\t4";
 static const char menu_power_optimus[] = "\n󰘚 Optimus Manager\t5";
@@ -320,10 +394,7 @@ static const char menu_yes_no[] = "Are you sure?\t-1\nYes\t1\nNo\t0";
  * ============================================================ */
 #ifdef TIME_C
 
-const unsigned int show_icon = 1;
-
-
-/* Icon shown in the bar when show_icon is set. */
+/* Icon shown in the bar when show_tim is set. */
 static const char icon_time[] = " ";
 #endif
 
@@ -347,16 +418,16 @@ const unsigned int volume_padding = 1;
 const char *args_eqalizer[]        = {"easyeffects", NULL};
 
 /* Volume control script and arguments */
-const char *args_volume_increase[] = {"dwm-audio", "up", NULL};
-const char *args_volume_decrase[]  = {"dwm-audio", "down", NULL};
-const char *args_volume_mute[]     = {"dwm-audio", "mute", NULL};
+const char *args_volume_increase[] = {"audio-ctl", "up", NULL};
+const char *args_volume_decrase[]  = {"audio-ctl", "down", NULL};
+const char *args_volume_mute[]     = {"audio-ctl", "mute", NULL};
 /*
  * Volume control script, run on middle click and scroll.
  * Requires: a script of your own accepting "up", "down" and "mute". The
- * default points at dwm-audio from https://github.com/dimgerasimou/binaries
+ * default points at audio-ctl from https://github.com/dimgerasimou/binaries
  * A plain alternative: a wrapper around wpctl or pamixer.
  */
-static const char path_volume_control[] = "~/.local/bin/dwm-audio";
+static const char path_volume_control[] = "~/.local/bin/audio-ctl";
 
 
 /* Bar icons: [0] muted, [1] low, [2] medium, [3] high, [4] no sink. */
@@ -367,6 +438,14 @@ static const char *const icons_volume[] = {
 	" ",
 	"",
 };
+
+/*
+ * Plain-ASCII tag used when show_vol is 0, printed right before the
+ * volume percentage (e.g. "V:87%"). ascii_vol_mute_tag replaces both the
+ * tag and the percentage while muted (e.g. "M").
+ */
+static const char ascii_vol_tag[]      = "V:";
+static const char ascii_vol_mute_tag[] = "M";
 
 /* Notification icons for the default sink and source. */
 static const char icon_vol_sink[] = "";

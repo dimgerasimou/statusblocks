@@ -13,6 +13,7 @@
 #define LEN(a) (sizeof(a) / sizeof((a)[0]))
 
 #include "colors.h"
+#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -325,11 +326,15 @@ main(void)
 		{ 3, on_right },
 	};
 
-	struct Context c = { NULL, 0 };
-	unsigned int   state = 0;
+	struct Context      c = { NULL, 0 };
+	unsigned int        state = 0;
+	const char *const  *icons;
 
 	set_name("statusblocks-internet");
 	clr_init();
+	toggle_init();
+
+	icons = toggle_get(show_net) ? icons_internet : ascii_internet;
 
 	nminit(&c.client);
 
@@ -345,7 +350,7 @@ main(void)
 	}
 
 	state = clampstate(state);
-	printf("%s%s" CLR_NRM "\n", clr_get(icon_colors[state]), icons_internet[state]);
+	printf("%s%s" CLR_NRM "\n", clr_get(icon_colors[state]), icons[state]);
 
 	return 0;
 }

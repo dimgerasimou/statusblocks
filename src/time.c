@@ -6,6 +6,7 @@
 #define TIME_C
 
 #include "colors.h"
+#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -17,13 +18,14 @@ main(void)
 
 	set_name("statusblocks-time");
 	clr_init();
+	toggle_init();
 
 	ct = time(NULL);
 	lt = localtime(&ct);
 
 	printf("%s", clr_get(clr_tim));
 
-	if (show_icon)
+	if (toggle_get(show_tim))
 		printf("%s", icon_time);
 
 	/*

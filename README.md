@@ -71,7 +71,51 @@ statusblocks.clr_cal:      #F38BA8
 
 Names are the `enum Color` entries in `src/include/colors.h`. Values must be
 `#RRGGBB`. Colours are cached in `$XDG_RUNTIME_DIR` and refreshed when
-`~/.Xresources` changes, so only the first block of a session talks to X.
+`xresources_path` (see below) changes, so only the first block of a session
+talks to X.
+
+## Icon style
+
+Every block's icon can be switched, per block, between its compiled-in glyph
+(usually a Nerd Font icon) and a plain-ASCII fallback — no nerd font, no
+rebuild required. Defaults live in `icon_defaults` in `config.h`; anything in
+the X resource database overrides them without a rebuild, e.g.
+
+```
+statusblocks.icon_bat:  0
+statusblocks.icon_net:  0
+```
+
+`1` selects the icon, `0` the fallback. Names are the `enum Toggle` entries
+in `src/include/toggle.h`. For `date`, `keyboard`, `memory`, `time` and
+`system`, the fallback is simply no icon, since the text that follows it
+already says what the block is. For `battery`, `bluetooth`, `internet`,
+`power` and `volume` the icon *is* the block's whole output, so the fallback
+carries real information instead of a lookalike glyph:
+
+| Block | Icon fallback |
+|---|---|
+| `battery` | `B:87%`, or `CHG` while charging, or `B:--` with no battery |
+| `volume` | `V:87%`, or `M:87%` while muted |
+| `internet` | `x` no connection · `eth` wired · `I`…`IIIII` wifi signal bars · `!` error |
+| `bluetooth` | `BT-` off · `BT+` on |
+| `power` | `PWR` |
+
+The battery and volume tags (`ascii_bat_tag`, `ascii_vol_tag`, ...) are
+configurable in `config.h`, same as everything else. Toggles are cached
+alongside colours in `$XDG_RUNTIME_DIR` and refreshed the same way.
+
+## Cache invalidation
+
+Colours and icon toggles are resolved from X once per session and cached in
+`$XDG_RUNTIME_DIR`. The cache is rebuilt whenever `xresources_path` in
+`config.h` has a newer mtime than the cache, which is what makes "edit the
+file, run `xrdb -merge`" pick up immediately instead of waiting for the next
+login. It defaults to `~/.Xresources`; point it at whatever file you actually
+edit and reload if that's not it, e.g. `~/.config/xresources/Xresources`.
+Editing the file alone is enough to invalidate the cache — the actual values
+still come from the X server's live resource database, so an edit needs an
+`xrdb -merge` (or equivalent) to take effect, not just a save.
 
 ### Other status bars
 
@@ -89,9 +133,9 @@ Or build with `-DNO_COLOR` to drop colour and the X dependency entirely.
 ## Configuration
 
 Everything is in `config.h`. It is split by block: each section is guarded by a
-macro only that block defines, which is why `show_icon` appears more than once
-without clashing. A setting placed in the wrong section is ignored silently, so
-keep each one under the block that reads it.
+macro only that block defines, which is why names such as `path_wifi_connect`
+appear more than once without clashing. A setting placed in the wrong section
+is ignored silently, so keep each one under the block that reads it.
 
 Icons, menu entries, commands and paths are all there. Paths accept `~` and
 `$VAR`. Settings that need an external program are marked `Requires:`.

@@ -10,6 +10,7 @@
 #define LEN(a)   (sizeof(a) / sizeof((a)[0]))
 
 #include "colors.h"
+#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -75,6 +76,7 @@ main(void)
 
 	set_name("statusblocks-memory");
 	clr_init();
+	toggle_init();
 
 	dispatch(buttons, LEN(buttons), NULL);
 
@@ -82,7 +84,7 @@ main(void)
 
 	printf("%s", clr_get(clr_mem));
 
-	if (show_icon)
+	if (toggle_get(show_mem))
 		printf("%s", icon_memory);
 
 	if (used_kib < 0)

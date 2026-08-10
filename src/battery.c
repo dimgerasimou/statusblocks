@@ -10,6 +10,7 @@
 #define BATTERY_C
 
 #include "colors.h"
+#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -238,6 +239,24 @@ battery_icon_index(const unsigned int cap)
 	return 4;
 }
 
+/*
+ * Formats the ASCII fallback into 'out': ascii_bat_chg while charging,
+ * otherwise ascii_bat_tag followed by the live percentage.
+ */
+static void
+ascii_format(char *out, const size_t outsz, const unsigned int cap, const int charging)
+{
+	int n;
+
+	if (charging)
+		n = snprintf(out, outsz, "%s", ascii_bat_chg);
+	else
+		n = snprintf(out, outsz, "%s%u%%", ascii_bat_tag, cap);
+
+	if (n < 0 || (size_t)n >= outsz)
+		warn("battery ascii string truncated");
+}
+
 int
 main(void)
 {
@@ -254,17 +273,24 @@ main(void)
 	struct Status s;
 	char          base[PATH_MAX];
 	char          st[64];
+	char          text[16];
 	size_t        i;
+	int           ascii;
+	int           charging;
 
 	set_name("statusblocks-battery");
 	clr_init();
+	toggle_init();
+
+	ascii = !toggle_get(show_bat);
 
 	if (getbatterypath(base, sizeof(base)) != 0) {
 		/*
 		 * No battery is a normal state on a desktop, so render the
-		 * empty icon rather than leaving the bar blank.
+		 * empty state rather than leaving the bar blank.
 		 */
-		printf("%s%s" CLR_NRM "\n", clr_get(icon_colors[0]), icons_battery[0]);
+		printf("%s%s" CLR_NRM "\n", clr_get(icon_colors[0]),
+		       ascii ? ascii_bat_none : icons_battery[0]);
 		return 0;
 	}
 
@@ -274,11 +300,17 @@ main(void)
 
 	dispatch(buttons, LEN(buttons), &s);
 
-	i = (strcmp(st, "Charging") == 0) ? 5 : battery_icon_index(s.cap);
+	charging = (strcmp(st, "Charging") == 0);
+	i = charging ? 5 : battery_icon_index(s.cap);
 	if (i >= LEN(icons_battery))
 		i = 0;
 
-	printf("%s%s" CLR_NRM "\n", clr_get(icon_colors[i]), icons_battery[i]);
+	if (ascii) {
+		ascii_format(text, sizeof(text), s.cap, charging);
+		printf("%s%s" CLR_NRM "\n", clr_get(icon_colors[i]), text);
+	} else {
+		printf("%s%s" CLR_NRM "\n", clr_get(icon_colors[i]), icons_battery[i]);
+	}
 
 	return 0;
 }

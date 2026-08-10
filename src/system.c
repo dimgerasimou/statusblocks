@@ -18,6 +18,7 @@
 #define LEN(a)     (sizeof(a) / sizeof((a)[0]))
 
 #include "colors.h"
+#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -233,9 +234,13 @@ main(void)
 	struct utsname  un;
 	struct Updates  u = { -1, -1 };
 	char           *release = NULL;
+	unsigned int    icon;
 
 	set_name("statusblocks-system");
 	clr_init();
+	toggle_init();
+
+	icon = toggle_get(show_sys);
 
 	dispatch(buttons, LEN(buttons), &u);
 
@@ -257,12 +262,18 @@ main(void)
 	}
 
 	if (u.primary > 0 || u.secondary > 0) {
-		printf("%s%s ", clr_get(clr_sys_pkg), icon_system_pkg);
+		printf("%s", clr_get(clr_sys_pkg));
+		if (icon)
+			printf("%s ", icon_system_pkg);
+		else
+			printf("%s", ascii_system_pkg);
 		if (show_update_count)
 			printf("%d ", u.primary + u.secondary);
 	}
 
-	printf("%s%s", clr_get(clr_sys_nrm), icon_system_kernel);
+	printf("%s", clr_get(clr_sys_nrm));
+	if (icon)
+		printf("%s", icon_system_kernel);
 
 	if (show_release && release && *release)
 		printf(" %s", release);
