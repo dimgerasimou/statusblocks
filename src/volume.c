@@ -215,8 +215,8 @@ volpercent(const pa_cvolume *cv)
 
 	if (pct < 0.0)
 		return 0;
-	if (pct > 100.0)
-		return 100;
+	if (pct > 150.0)
+		return 150;
 
 	return (unsigned int)(pct + 0.5);
 }
