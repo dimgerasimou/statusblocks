@@ -127,6 +127,9 @@ getbatterypath(char *out, const size_t outsz)
 		if (e->d_name[0] == '.')
 			continue;
 
+		if (strncmp(e->d_name, "BAT", strlen("BAT")) != 0)
+			continue;
+
 		n = snprintf(path, sizeof(path), "%s/%s/type", base, e->d_name);
 		if (n < 0 || (size_t)n >= sizeof(path))
 			continue;
