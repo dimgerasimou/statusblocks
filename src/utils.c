@@ -4,6 +4,7 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -117,6 +118,32 @@ notify(const char *sum, const char *body, const char *icon)
 	notify_uninit();
 }
 
+/*
+ * Points a freshly forked child's stdout at /dev/null.
+ *
+ * A block's stdout is the status bar: anything a spawned program prints
+ * would be read as bar text, so a chatty helper corrupts the bar rather
+ * than merely being noisy. stderr is deliberately left alone, so the
+ * exec warnings below and whatever the program complains about still
+ * reach the journal.
+ */
+static void
+silence_stdout(void)
+{
+	int fd = open("/dev/null", O_WRONLY);
+
+	if (fd < 0) {
+		warn("open /dev/null:");
+		return;
+	}
+
+	if (dup2(fd, STDOUT_FILENO) < 0)
+		warn("dup2 for stdout:");
+
+	if (fd != STDOUT_FILENO)
+		close(fd);
+}
+
 void
 execute(char **args)
 {
@@ -129,6 +156,7 @@ execute(char **args)
 
 	case 0:
 		setsid();
+		silence_stdout();
 		execvp(args[0], args);
 		warn("execvp for: %s:", args[0]);
 		_exit(127);
@@ -211,6 +239,7 @@ executepath(const char *path, char **args)
 
 	case 0:
 		setsid();
+		silence_stdout();
 		execv(path, args);
 		warn("execv for: %s:", path);
 		_exit(127);

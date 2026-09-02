@@ -49,8 +49,10 @@ COMMON_CFLAGS := $(NOTIFY_CFLAGS)
 COMMON_LIBS   := $(NOTIFY_LIBS) -lX11
 
 # Shared objects linked into every block
-UTILS_SRC := $(SRC_DIR)/utils.c $(SRC_DIR)/colors.c $(SRC_DIR)/toggle.c
-UTILS_OBJ := $(OBJ_DIR)/utils.o $(OBJ_DIR)/colors.o $(OBJ_DIR)/toggle.o
+UTILS_SRC := $(SRC_DIR)/utils.c $(SRC_DIR)/colors.c $(SRC_DIR)/toggle.c \
+             $(SRC_DIR)/gpuprofile.c
+UTILS_OBJ := $(OBJ_DIR)/utils.o $(OBJ_DIR)/colors.o $(OBJ_DIR)/toggle.o \
+             $(OBJ_DIR)/gpuprofile.o
 
 # Block configuration - comment out blocks you don't need
 BLOCKS := time \

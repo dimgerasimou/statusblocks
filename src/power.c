@@ -15,6 +15,7 @@
 #define LEN(a)    (sizeof(a) / sizeof((a)[0]))
 
 #include "colors.h"
+#include "gpuprofile.h"
 #include "toggle.h"
 #include "utils.h"
 #include "config.h"
@@ -84,33 +85,22 @@ clipmenu(void)
 }
 #endif
 
-#ifdef POWER_MANAGEMENT
-static const char *const args_optimus_integrated[] = {"optimus-manager", "--no-confirm", "--switch", "integrated", NULL};
-static const char *const args_optimus_hybrid[]     = {"optimus-manager", "--no-confirm", "--switch", "hybrid", NULL};
-static const char *const args_optimus_nvidia[]     = {"optimus-manager", "--no-confirm", "--switch", "nvidia", NULL};
-
+#ifdef POWER_PROFILE
 static void
-optimusmenu(void)
+gpuprofilemenu(void)
 {
-	switch (getxmenuopt(menu_optimus)) {
-	case 0:
-		if (getxmenuopt(menu_yes_no) == 1)
-			execute((char **)args_optimus_integrated);
-		break;
+	char menu[MENU_SIZE];
+	int  opt;
 
-	case 1:
-		if (getxmenuopt(menu_yes_no) == 1)
-			execute((char **)args_optimus_hybrid);
-		break;
+	if (gpuprofile_menu(menu, sizeof(menu)) < 0)
+		return;
 
-	case 2:
-		if (getxmenuopt(menu_yes_no) == 1)
-			execute((char **)args_optimus_nvidia);
-		break;
+	opt = getxmenuopt(menu);
+	if (opt <= 0)
+		return;
 
-	default:
-		break;
-	}
+	if (getxmenuopt(menu_yes_no) == 1)
+		gpuprofile_switch((size_t)opt);
 }
 #endif
 
@@ -138,8 +128,8 @@ mainmenu(void)
 	}
 	off = (size_t)n;
 
-#ifdef POWER_MANAGEMENT
-	n = snprintf(menu + off, sizeof(menu) - off, "%s", menu_power_optimus);
+#ifdef POWER_PROFILE
+	n = snprintf(menu + off, sizeof(menu) - off, "%s", menu_power_gpu_profile);
 	if (n < 0 || (size_t)n >= sizeof(menu) - off) {
 		warn("power menu too long");
 		return;
@@ -189,9 +179,9 @@ mainmenu(void)
 		execute((char **)args_dwmblocks_restart);
 		break;
 
-#ifdef POWER_MANAGEMENT
+#ifdef POWER_PROFILE
 	case 5:
-		optimusmenu();
+		gpuprofilemenu();
 		break;
 #endif
 

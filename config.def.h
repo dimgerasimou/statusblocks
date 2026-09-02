@@ -119,13 +119,24 @@ static const unsigned int icon_defaults[] = {
 };
 
 /* ============================================================
+ * GPU POWER PROFILE
+ * ============================================================
+ * Hybrid-graphics switching, used by the battery and power blocks.
+ * Comment out POWER_PROFILE to build without it. */
+
+#define POWER_PROFILE
+
+/* Available backends. */
+#define POWER_PROFILE_OPTIMUS_MANAGER 1
+#define POWER_PROFILE_XGPUPROFILE     2
+
+/* Which one to build against. */
+#define POWER_PROFILE_BACKEND POWER_PROFILE_XGPUPROFILE
+
+/* ============================================================
  * BATTERY BLOCK
  * ============================================================ */
 #ifdef BATTERY_C
-
-/* Enable power management features (optimus-manager support) */
-#define POWER_MANAGEMENT
-
 
 /* Status icons, ordered from empty to full; the last is "charging". */
 static const char *const icons_battery[] = {
@@ -360,9 +371,6 @@ static const char icon_memory[] = " ";
 /* Enable clipboard integration */
 #define CLIPBOARD
 
-/* Enable power management features (optimus-manager support) */
-#define POWER_MANAGEMENT
-
 /* Status bar restart cmd.
  * Requires: dwmblocks. Adjust if yours is something else. */
 const char *args_dwmblocks_restart[] = {"dwmblocks", "--restart", NULL};
@@ -382,12 +390,111 @@ static const char ascii_power[] = "PWR";
 
 /* xmenu prompts. Each line is "<label>\t<value>". */
 static const char menu_power[] = " Shutdown\t0\n Reboot\t1\n\n󰗽 Logout\t2\n Lock\t3\n\n Restart DwmBlocks\t4";
-static const char menu_power_optimus[] = "\n󰘚 Optimus Manager\t5";
+static const char menu_power_gpu_profile[] = "\n󰘚 GPU Profile\t5";
 static const char menu_power_clipboard[] = "\n󰅌 Clipmenu\t6";
-static const char menu_optimus[] = "Integrated\t0\nHybrid\t1\nNvidia\t2";
 static const char menu_clipboard[] = "Pause clipmenu for 1 minute\t0\nClear clipboard\t1";
 static const char menu_yes_no[] = "Are you sure?\t-1\nYes\t1\nNo\t0";
 #endif
+
+/* ============================================================
+ * GPU POWER PROFILE BACKEND
+ * ============================================================ */
+#ifdef GPUPROFILE_C
+#ifdef POWER_PROFILE
+
+/* A GPU arrangement that can be in effect. `match` is the substring that
+ * identifies it in the backend's status output. */
+struct GpuProfileState {
+	const char *label;
+	const char *icon;
+	const char *match;
+};
+
+/* Something that can be asked for. Takes effect at the next session. */
+struct GpuProfileMode {
+	const char        *label;
+	const char *const *argv;
+};
+
+/* Icons.
+ *
+ * These name the power trade-off rather than a vendor, so they stay
+ * correct whichever GPUs the machine has.
+ *
+ * Names must exist at real pixel sizes in the active icon theme. Papirus,
+ * for instance, ships power-profile-* only under symbolic/, so those names
+ * silently resolve to nothing in a notification; the ones below are
+ * present at 16-64px. Check a candidate with:
+ *
+ *     find /usr/share/icons/<theme> -name '<name>.svg'
+ *
+ * For a monochrome look on a theme that has them, the symbolic set is:
+ *   power-profile-power-saver-symbolic / -balanced-symbolic /
+ *   -performance-symbolic, with dialog-question-symbolic for unknown. */
+#define GPU_ICON_UNKNOWN    "dialog-question"
+#define GPU_ICON_INTEGRATED "computer-laptop"
+#define GPU_ICON_HYBRID     "deepin-graphics-driver-manager"
+#define GPU_ICON_DISCRETE   "video-display"
+
+#if POWER_PROFILE_BACKEND == POWER_PROFILE_OPTIMUS_MANAGER
+
+static const char gpu_profile_status_cmd[] = "optimus-manager --status";
+
+/* The line naming the arrangement currently in effect. */
+static const char gpu_profile_state_key[] = "Current";
+
+static const struct GpuProfileState gpu_profile_states[] = {
+	{ "Unknown",    GPU_ICON_UNKNOWN,    ""           },
+	{ "Integrated", GPU_ICON_INTEGRATED, "integrated" },
+	{ "Hybrid",     GPU_ICON_HYBRID,     "hybrid"     },
+	{ "Discrete",   GPU_ICON_DISCRETE,   "nvidia"     },
+};
+
+static const char *const args_gpu_integrated[] = {"optimus-manager", "--no-confirm", "--switch", "integrated", NULL};
+static const char *const args_gpu_hybrid[]     = {"optimus-manager", "--no-confirm", "--switch", "hybrid",     NULL};
+static const char *const args_gpu_discrete[]   = {"optimus-manager", "--no-confirm", "--switch", "nvidia",     NULL};
+
+static const struct GpuProfileMode gpu_profile_modes[] = {
+	{ "Unknown",    NULL                },
+	{ "Integrated", args_gpu_integrated },
+	{ "Hybrid",     args_gpu_hybrid     },
+	{ "Discrete",   args_gpu_discrete   },
+};
+
+#elif POWER_PROFILE_BACKEND == POWER_PROFILE_XGPUPROFILE
+
+static const char gpu_profile_status_cmd[] = "xgpuprofile --status";
+
+/* "Running" is the layout this session actually started with. The "Mode"
+ * line is the saved setting, which under `auto` does not say which GPU
+ * ended up driving the display. */
+static const char gpu_profile_state_key[] = "Running";
+
+/* "integrated GPU (hybrid)" contains both words, so the discrete entry is
+ * matched first and the hybrid entry keys off "integrated". */
+static const struct GpuProfileState gpu_profile_states[] = {
+	{ "Unknown",  GPU_ICON_UNKNOWN,  ""           },
+	{ "Discrete", GPU_ICON_DISCRETE, "discrete"   },
+	{ "Hybrid",   GPU_ICON_HYBRID,   "integrated" },
+};
+
+/* --once applies to the next session only and leaves the saved
+ * configuration alone, which is what a menu pick should do. */
+static const char *const args_gpu_hybrid[]   = {"sudo", "-n", "xgpuprofile", "--once", "hybrid", NULL};
+static const char *const args_gpu_discrete[] = {"sudo", "-n", "xgpuprofile", "--once", "dgpu",   NULL};
+
+static const struct GpuProfileMode gpu_profile_modes[] = {
+	{ "Unknown",  NULL              },
+	{ "Hybrid",   args_gpu_hybrid   },
+	{ "Discrete", args_gpu_discrete },
+};
+
+#else
+#error "POWER_PROFILE_BACKEND is not set to a known backend"
+#endif
+
+#endif /* POWER_PROFILE */
+#endif /* GPUPROFILE_C */
 
 /* ============================================================
  * TIME BLOCK

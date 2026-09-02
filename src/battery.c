@@ -11,6 +11,7 @@
 
 #include "colors.h"
 #include "toggle.h"
+#include "gpuprofile.h"
 #include "utils.h"
 #include "config.h"
 
@@ -18,70 +19,28 @@
 #define BODY_SIZE 256
 
 
-#ifdef POWER_MANAGEMENT
-struct Optimus {
-	const char *name;
-	const char *icon;
-};
-
-static const struct Optimus optimus[] = {
-	{ "Unmanaged",  "battery" },
-	{ "Integrated", "intel" },
-	{ "Hybrid",     "deepin-graphics-driver-manager" },
-	{ "Nvidia",     "nvidia" }
-};
-
-static unsigned int
-getmode(void)
-{
-	char  buf[256];
-	FILE *ep;
-
-	ep = popen("optimus-manager --status", "r");
-	if (!ep) {
-		warn("popen() for: \"optimus-manager --status\":");
-		return 0;
-	}
-
-	buf[0] = '\0';
-	while (fgets(buf, sizeof(buf), ep)) {
-		if (strstr(buf, "Current"))
-			break;
-		buf[0] = '\0';
-	}
-
-	pclose(ep);
-
-	if (strstr(buf, "integrated"))
-		return 1;
-	if (strstr(buf, "hybrid"))
-		return 2;
-	if (strstr(buf, "nvidia"))
-		return 3;
-
-	return 0;
-}
+#ifdef POWER_PROFILE
 
 static void
 send_notification(const char *cap, const char *st)
 {
-	unsigned int mode = getmode();
-	char         body[BODY_SIZE];
-	int          n;
+	size_t state = gpuprofile_state();
+	char   body[BODY_SIZE];
+	int    n;
 
 	n = snprintf(body, sizeof(body),
 	             "Battery capacity: %s%%\n"
 	             "Battery status:   %s\n"
-	             "Optimus Manager:  %s",
-	             cap, st, optimus[mode].name);
+	             "GPU in use:       %s",
+	             cap, st, gpuprofile_state_label(state));
 
 	if (n < 0 || (size_t)n >= sizeof(body))
 		warn("notification body truncated");
 
-	notify("Power", body, optimus[mode].icon);
+	notify("Power", body, gpuprofile_state_icon(state));
 }
 
-#else /* POWER_MANAGEMENT */
+#else /* POWER_PROFILE */
 
 static void
 send_notification(const char *cap, const char *st)
@@ -100,7 +59,7 @@ send_notification(const char *cap, const char *st)
 	notify("Power", body, "battery");
 }
 
-#endif /* POWER_MANAGEMENT */
+#endif /* POWER_PROFILE */
 
 /*
  * Locates the first battery device in sysfs. On success writes its
