@@ -13,14 +13,14 @@ They are coloured, clickable, and configured in a single `config.h`.
 |---|---|---|---|
 | `time` | `HH:MM` | — | — |
 | `date` | day and month | **L** notification calendar, current day marked | — |
-| `battery` | charge level and state | **L** notification with capacity and status | — |
+| `battery` | charge level and state | **L** notification with capacity, status, power profile and GPU | — |
 | `memory` | memory in use | **R** task manager | htop |
 | `system` | pending updates and kernel release | **L** notification with per-source counts · **R** system upgrade | package manager |
 | `volume` | volume, muted state | **L** sink and source info · **M** equalizer · **R** mute · **scroll** volume | libpulse, a volume script |
 | `keyboard` | current layout | **L** next layout | a layout script |
 | `bluetooth` | adapter state | **L** TUI · **M** toggle adapter | bluez, bluetuith |
 | `internet` | connection type, wifi strength | **L** MAC, IPv4, gateway, IPv6, SSID, signal · **R** menu: toggle wifi, connect, TUI | NetworkManager, xmenu |
-| `power` | a button | **L** menu: shutdown, reboot, logout, lock, restart the bar | xmenu, slock |
+| `power` | a button | **L** menu: shutdown, reboot, logout, lock, restart the bar, power and GPU profiles | xmenu, slock |
 
 Blocks that need a script of your own (volume, keyboard, wifi connect) default to
 helpers from [dimgerasimou/binaries](https://github.com/dimgerasimou/binaries).
@@ -140,10 +140,11 @@ is ignored silently, so keep each one under the block that reads it.
 Icons, menu entries, commands and paths are all there. Paths accept `~` and
 `$VAR`. Settings that need an external program are marked `Requires:`.
 
-Two feature toggles, on by default. Comment them out if you do not have the
+Three feature toggles, on by default. Comment them out if you do not have the
 programs:
 
-- `POWER_MANAGEMENT` adds optimus-manager to the power menu and the battery notification
+- `POWERPROFILE` adds [powerprofile](https://github.com/dimgerasimou/powerprofile) to the power menu and the battery notification. Profiles are applied through `sudo -n`, so each one needs a line in `/etc/sudoers.d/powerprofile`
+- `GPU_PROFILE` adds GPU switching to the power menu and the battery notification; `GPU_PROFILE_BACKEND` picks xgpuprofile or optimus-manager
 - `CLIPBOARD` adds clipmenu entries to the power menu
 
 ## Package updates

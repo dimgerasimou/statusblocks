@@ -90,4 +90,13 @@ int getxmenuopt(const char *menu);
  */
 pid_t getpidof(const char *process);
 
+/*
+ * Runs 'cmd' through the shell and copies the first line of its output
+ * containing 'key' into 'buf'.
+ *
+ * Returns 0 on success, -1 if the command could not be run or no line
+ * contained the key.
+ */
+int cmdfindline(const char *cmd, const char *key, char *buf, const size_t bufsz);
+
 #endif /* UTILS_H */

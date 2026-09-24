@@ -119,19 +119,30 @@ static const unsigned int icon_defaults[] = {
 };
 
 /* ============================================================
- * GPU POWER PROFILE
+ * GPU PROFILE
  * ============================================================
  * Hybrid-graphics switching, used by the battery and power blocks.
- * Comment out POWER_PROFILE to build without it. */
+ * Comment out GPU_PROFILE to build without it. */
 
-#define POWER_PROFILE
+#define GPU_PROFILE
 
 /* Available backends. */
-#define POWER_PROFILE_OPTIMUS_MANAGER 1
-#define POWER_PROFILE_XGPUPROFILE     2
+#define GPU_PROFILE_OPTIMUS_MANAGER 1
+#define GPU_PROFILE_XGPUPROFILE     2
 
 /* Which one to build against. */
-#define POWER_PROFILE_BACKEND POWER_PROFILE_XGPUPROFILE
+#define GPU_PROFILE_BACKEND GPU_PROFILE_XGPUPROFILE
+
+/* ============================================================
+ * SYSTEM POWER PROFILE
+ * ============================================================
+ * CPU, embedded controller, Wi-Fi and brightness profiles through
+ * powerprofile, used by the battery and power blocks. Separate from the
+ * GPU switch above.
+ * Comment out POWERPROFILE to build without it.
+ * Requires: powerprofile, and passwordless sudo for the modes below. */
+
+#define POWERPROFILE
 
 /* ============================================================
  * BATTERY BLOCK
@@ -147,6 +158,9 @@ static const char *const icons_battery[] = {
 	" ",
 	" ",
 };
+
+/* Notification icon, a name from the active icon theme. */
+static const char icon_battery_notif[] = "battery";
 
 /*
  * Plain-ASCII fallback used when show_bat is 0. ascii_bat_tag is followed
@@ -391,22 +405,22 @@ static const char ascii_power[] = "PWR";
 /* xmenu prompts. Each line is "<label>\t<value>". */
 static const char menu_power[] = " Shutdown\t0\n Reboot\t1\n\n󰗽 Logout\t2\n Lock\t3\n\n Restart DwmBlocks\t4";
 static const char menu_power_gpu_profile[] = "\n󰘚 GPU Profile\t5";
+static const char menu_power_profile[] = "\n󰓅 Power Profile\t7";
 static const char menu_power_clipboard[] = "\n󰅌 Clipmenu\t6";
 static const char menu_clipboard[] = "Pause clipmenu for 1 minute\t0\nClear clipboard\t1";
 static const char menu_yes_no[] = "Are you sure?\t-1\nYes\t1\nNo\t0";
 #endif
 
 /* ============================================================
- * GPU POWER PROFILE BACKEND
+ * GPU PROFILE BACKEND
  * ============================================================ */
 #ifdef GPUPROFILE_C
-#ifdef POWER_PROFILE
+#ifdef GPU_PROFILE
 
 /* A GPU arrangement that can be in effect. `match` is the substring that
  * identifies it in the backend's status output. */
 struct GpuProfileState {
 	const char *label;
-	const char *icon;
 	const char *match;
 };
 
@@ -416,27 +430,7 @@ struct GpuProfileMode {
 	const char *const *argv;
 };
 
-/* Icons.
- *
- * These name the power trade-off rather than a vendor, so they stay
- * correct whichever GPUs the machine has.
- *
- * Names must exist at real pixel sizes in the active icon theme. Papirus,
- * for instance, ships power-profile-* only under symbolic/, so those names
- * silently resolve to nothing in a notification; the ones below are
- * present at 16-64px. Check a candidate with:
- *
- *     find /usr/share/icons/<theme> -name '<name>.svg'
- *
- * For a monochrome look on a theme that has them, the symbolic set is:
- *   power-profile-power-saver-symbolic / -balanced-symbolic /
- *   -performance-symbolic, with dialog-question-symbolic for unknown. */
-#define GPU_ICON_UNKNOWN    "dialog-question"
-#define GPU_ICON_INTEGRATED "computer-laptop"
-#define GPU_ICON_HYBRID     "deepin-graphics-driver-manager"
-#define GPU_ICON_DISCRETE   "video-display"
-
-#if POWER_PROFILE_BACKEND == POWER_PROFILE_OPTIMUS_MANAGER
+#if GPU_PROFILE_BACKEND == GPU_PROFILE_OPTIMUS_MANAGER
 
 static const char gpu_profile_status_cmd[] = "optimus-manager --status";
 
@@ -444,10 +438,10 @@ static const char gpu_profile_status_cmd[] = "optimus-manager --status";
 static const char gpu_profile_state_key[] = "Current";
 
 static const struct GpuProfileState gpu_profile_states[] = {
-	{ "Unknown",    GPU_ICON_UNKNOWN,    ""           },
-	{ "Integrated", GPU_ICON_INTEGRATED, "integrated" },
-	{ "Hybrid",     GPU_ICON_HYBRID,     "hybrid"     },
-	{ "Discrete",   GPU_ICON_DISCRETE,   "nvidia"     },
+	{ "Unknown",    ""           },
+	{ "Integrated", "integrated" },
+	{ "Hybrid",     "hybrid"     },
+	{ "Discrete",   "nvidia"     },
 };
 
 static const char *const args_gpu_integrated[] = {"optimus-manager", "--no-confirm", "--switch", "integrated", NULL};
@@ -461,7 +455,7 @@ static const struct GpuProfileMode gpu_profile_modes[] = {
 	{ "Discrete",   args_gpu_discrete   },
 };
 
-#elif POWER_PROFILE_BACKEND == POWER_PROFILE_XGPUPROFILE
+#elif GPU_PROFILE_BACKEND == GPU_PROFILE_XGPUPROFILE
 
 static const char gpu_profile_status_cmd[] = "xgpuprofile --status";
 
@@ -473,9 +467,9 @@ static const char gpu_profile_state_key[] = "Running";
 /* "integrated GPU (hybrid)" contains both words, so the discrete entry is
  * matched first and the hybrid entry keys off "integrated". */
 static const struct GpuProfileState gpu_profile_states[] = {
-	{ "Unknown",  GPU_ICON_UNKNOWN,  ""           },
-	{ "Discrete", GPU_ICON_DISCRETE, "discrete"   },
-	{ "Hybrid",   GPU_ICON_HYBRID,   "integrated" },
+	{ "Unknown",  ""           },
+	{ "Discrete", "discrete"   },
+	{ "Hybrid",   "integrated" },
 };
 
 /* --once applies to the next session only and leaves the saved
@@ -490,11 +484,72 @@ static const struct GpuProfileMode gpu_profile_modes[] = {
 };
 
 #else
-#error "POWER_PROFILE_BACKEND is not set to a known backend"
+#error "GPU_PROFILE_BACKEND is not set to a known backend"
 #endif
 
-#endif /* POWER_PROFILE */
+#endif /* GPU_PROFILE */
 #endif /* GPUPROFILE_C */
+
+/* ============================================================
+ * SYSTEM POWER PROFILE BACKEND
+ * ============================================================ */
+#ifdef POWERPROFILE_C
+#ifdef POWERPROFILE
+
+/* A profile that can be in effect. `match` is the profile's name exactly
+ * as it appears in /etc/powerprofile.conf. A profile missing from this
+ * list is shown as Unknown. */
+struct PowerProfileState {
+	const char *label;
+	const char *match;
+};
+
+/* Something that can be asked for. Takes effect at once. */
+struct PowerProfileMode {
+	const char        *label;
+	const char *const *argv;
+};
+
+/* Prints "ac: yes  profile: ac  override: none" on its first line, and
+ * needs no privileges. "profile" is the one applied last, which is the
+ * effective one: under `--auto` it follows the AC adapter. */
+static const char power_profile_status_cmd[] = "powerprofile --status";
+static const char power_profile_state_key[]  = "profile: ";
+
+static const struct PowerProfileState power_profile_states[] = {
+	{ "Unknown",     ""       },
+	{ "Battery",     "bat"    },
+	{ "AC",          "ac"     },
+	{ "Gaming",      "gaming" },
+	{ "Power saver", "saver"  },
+};
+
+/*
+ * sudo matches these argument lists exactly, so each mode needs a line of
+ * its own in /etc/sudoers.d/powerprofile; conf/powerprofile.sudoers in the
+ * powerprofile repository has all of them. Modes for profiles you do not
+ * define in /etc/powerprofile.conf can simply be deleted.
+ *
+ * "bat" and "ac" force that profile as if the adapter said so; Auto hands
+ * control back to the adapter and drops any manual override.
+ */
+static const char *const args_profile_auto[]   = {"sudo", "-n", "powerprofile", "--auto", NULL};
+static const char *const args_profile_bat[]    = {"sudo", "-n", "powerprofile", "--profile", "bat",    NULL};
+static const char *const args_profile_ac[]     = {"sudo", "-n", "powerprofile", "--profile", "ac",     NULL};
+static const char *const args_profile_gaming[] = {"sudo", "-n", "powerprofile", "--profile", "gaming", NULL};
+static const char *const args_profile_saver[]  = {"sudo", "-n", "powerprofile", "--profile", "saver",  NULL};
+
+static const struct PowerProfileMode power_profile_modes[] = {
+	{ "Unknown",     NULL                },
+	{ "Auto",        args_profile_auto   },
+	{ "Battery",     args_profile_bat    },
+	{ "AC",          args_profile_ac     },
+	{ "Gaming",      args_profile_gaming },
+	{ "Power saver", args_profile_saver  },
+};
+
+#endif /* POWERPROFILE */
+#endif /* POWERPROFILE_C */
 
 /* ============================================================
  * TIME BLOCK

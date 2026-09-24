@@ -12,6 +12,7 @@
 #include "colors.h"
 #include "toggle.h"
 #include "gpuprofile.h"
+#include "powerprofile.h"
 #include "utils.h"
 #include "config.h"
 
@@ -19,28 +20,18 @@
 #define BODY_SIZE 256
 
 
-#ifdef POWER_PROFILE
-
+#if defined(POWERPROFILE) || defined(GPU_PROFILE)
+/* Appends "<label><value>" to 'body' on a new line. */
 static void
-send_notification(const char *cap, const char *st)
+add_line(char *body, const size_t bodysz, const char *label, const char *value)
 {
-	size_t state = gpuprofile_state();
-	char   body[BODY_SIZE];
-	int    n;
+	const size_t len = strlen(body);
+	const int    n   = snprintf(body + len, bodysz - len, "\n%-18s%s", label, value);
 
-	n = snprintf(body, sizeof(body),
-	             "Battery capacity: %s%%\n"
-	             "Battery status:   %s\n"
-	             "GPU in use:       %s",
-	             cap, st, gpuprofile_state_label(state));
-
-	if (n < 0 || (size_t)n >= sizeof(body))
+	if (n < 0 || (size_t)n >= bodysz - len)
 		warn("notification body truncated");
-
-	notify("Power", body, gpuprofile_state_icon(state));
 }
-
-#else /* POWER_PROFILE */
+#endif
 
 static void
 send_notification(const char *cap, const char *st)
@@ -56,10 +47,18 @@ send_notification(const char *cap, const char *st)
 	if (n < 0 || (size_t)n >= sizeof(body))
 		warn("notification body truncated");
 
-	notify("Power", body, "battery");
-}
+#ifdef POWERPROFILE
+	add_line(body, sizeof(body), "Power profile:",
+	         powerprofile_state_label(powerprofile_state()));
+#endif
 
-#endif /* POWER_PROFILE */
+#ifdef GPU_PROFILE
+	add_line(body, sizeof(body), "GPU in use:",
+	         gpuprofile_state_label(gpuprofile_state()));
+#endif
+
+	notify("Power", body, icon_battery_notif);
+}
 
 /*
  * Locates the first battery device in sysfs. On success writes its

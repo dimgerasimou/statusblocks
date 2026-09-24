@@ -16,6 +16,7 @@
 
 #include "colors.h"
 #include "gpuprofile.h"
+#include "powerprofile.h"
 #include "toggle.h"
 #include "utils.h"
 #include "config.h"
@@ -85,7 +86,7 @@ clipmenu(void)
 }
 #endif
 
-#ifdef POWER_PROFILE
+#ifdef GPU_PROFILE
 static void
 gpuprofilemenu(void)
 {
@@ -101,6 +102,24 @@ gpuprofilemenu(void)
 
 	if (getxmenuopt(menu_yes_no) == 1)
 		gpuprofile_switch((size_t)opt);
+}
+#endif
+
+#ifdef POWERPROFILE
+static void
+powerprofilemenu(void)
+{
+	char menu[MENU_SIZE];
+	int  opt;
+
+	if (powerprofile_menu(menu, sizeof(menu)) < 0)
+		return;
+
+	/* No confirmation, unlike the GPU switch: this takes effect at once
+	 * and the previous profile is one more pick away. */
+	opt = getxmenuopt(menu);
+	if (opt > 0)
+		powerprofile_switch((size_t)opt);
 }
 #endif
 
@@ -128,8 +147,17 @@ mainmenu(void)
 	}
 	off = (size_t)n;
 
-#ifdef POWER_PROFILE
+#ifdef GPU_PROFILE
 	n = snprintf(menu + off, sizeof(menu) - off, "%s", menu_power_gpu_profile);
+	if (n < 0 || (size_t)n >= sizeof(menu) - off) {
+		warn("power menu too long");
+		return;
+	}
+	off += (size_t)n;
+#endif
+
+#ifdef POWERPROFILE
+	n = snprintf(menu + off, sizeof(menu) - off, "%s", menu_power_profile);
 	if (n < 0 || (size_t)n >= sizeof(menu) - off) {
 		warn("power menu too long");
 		return;
@@ -179,7 +207,7 @@ mainmenu(void)
 		execute((char **)args_dwmblocks_restart);
 		break;
 
-#ifdef POWER_PROFILE
+#ifdef GPU_PROFILE
 	case 5:
 		gpuprofilemenu();
 		break;
@@ -188,6 +216,12 @@ mainmenu(void)
 #ifdef CLIPBOARD
 	case 6:
 		clipmenu();
+		break;
+#endif
+
+#ifdef POWERPROFILE
+	case 7:
+		powerprofilemenu();
 		break;
 #endif
 

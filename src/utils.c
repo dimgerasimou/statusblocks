@@ -554,3 +554,28 @@ ishexcolor(const char *s)
 
 	return 1;
 }
+
+int
+cmdfindline(const char *cmd, const char *key, char *buf, const size_t bufsz)
+{
+	char  line[256];
+	FILE *ep;
+	int   found = 0;
+
+	if (!(ep = popen(cmd, "r"))) {
+		warn("popen() for \"%s\":", cmd);
+		return -1;
+	}
+
+	while (fgets(line, sizeof(line), ep)) {
+		if (strstr(line, key)) {
+			snprintf(buf, bufsz, "%s", line);
+			found = 1;
+			break;
+		}
+	}
+
+	pclose(ep);
+
+	return found ? 0 : -1;
+}

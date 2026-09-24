@@ -11,48 +11,16 @@
 #include "utils.h"
 #include "config.h"
 
-#ifdef POWER_PROFILE
+#ifdef GPU_PROFILE
 
 #define LEN(a) (sizeof(a) / sizeof((a)[0]))
-
-/*
- * Runs the backend's status command and returns the first line containing
- * `key`, which is the line naming whatever we are asking about.
- *
- * Returns 0 on success, -1 if the backend could not be run or the key
- * never appeared.
- */
-static int
-status_line(const char *cmd, const char *key, char *buf, size_t bufsz)
-{
-	char  line[256];
-	FILE *ep;
-	int   found = 0;
-
-	if (!(ep = popen(cmd, "r"))) {
-		warn("popen() for \"%s\":", cmd);
-		return -1;
-	}
-
-	while (fgets(line, sizeof(line), ep)) {
-		if (strstr(line, key)) {
-			snprintf(buf, bufsz, "%s", line);
-			found = 1;
-			break;
-		}
-	}
-
-	pclose(ep);
-
-	return found ? 0 : -1;
-}
 
 size_t
 gpuprofile_state(void)
 {
 	char line[256];
 
-	if (status_line(gpu_profile_status_cmd, gpu_profile_state_key,
+	if (cmdfindline(gpu_profile_status_cmd, gpu_profile_state_key,
 	                line, sizeof(line)) < 0)
 		return 0;
 
@@ -73,15 +41,6 @@ gpuprofile_state_label(size_t state)
 		state = 0;
 
 	return gpu_profile_states[state].label;
-}
-
-const char *
-gpuprofile_state_icon(size_t state)
-{
-	if (state >= LEN(gpu_profile_states))
-		state = 0;
-
-	return gpu_profile_states[state].icon;
 }
 
 size_t
@@ -132,4 +91,4 @@ gpuprofile_switch(size_t mode)
 	execute((char **)gpu_profile_modes[mode].argv);
 }
 
-#endif /* POWER_PROFILE */
+#endif /* GPU_PROFILE */

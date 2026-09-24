@@ -8,7 +8,7 @@
 /*
  * Hybrid-graphics profile switching, independent of the tool that
  * implements it. The backend is a compile-time choice; see
- * POWER_PROFILE_BACKEND in config.h.
+ * GPU_PROFILE_BACKEND in config.h.
  *
  * Two things are deliberately kept apart:
  *
@@ -31,7 +31,6 @@
 /* Which GPU is driving the display now. 0 if it could not be determined. */
 size_t gpuprofile_state(void);
 const char *gpuprofile_state_label(size_t state);
-const char *gpuprofile_state_icon(size_t state);
 
 /* Modes that can be requested. Count includes the unknown entry. */
 size_t gpuprofile_mode_count(void);
