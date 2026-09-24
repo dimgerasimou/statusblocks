@@ -497,8 +497,8 @@ static const struct GpuProfileMode gpu_profile_modes[] = {
 #ifdef POWERPROFILE
 
 /* A profile that can be in effect. `match` is the profile's name exactly
- * as it appears in /etc/powerprofile.conf. A profile missing from this
- * list is shown as Unknown. */
+ * as it appears in /etc/powerprofile.conf, without spaces. A profile
+ * missing from this list is shown as Unknown. */
 struct PowerProfileState {
 	const char *label;
 	const char *match;
@@ -517,11 +517,11 @@ static const char power_profile_status_cmd[] = "powerprofile --status";
 static const char power_profile_state_key[]  = "profile: ";
 
 static const struct PowerProfileState power_profile_states[] = {
-	{ "Unknown",     ""       },
-	{ "Battery",     "bat"    },
-	{ "AC",          "ac"     },
-	{ "Gaming",      "gaming" },
-	{ "Power saver", "saver"  },
+	{ "Unknown",  ""         },
+	{ "Battery",  "battery"  },
+	{ "Balanced", "balanced" },
+	{ "Gaming",   "gaming"   },
+	{ "Saver",    "saver"    },
 };
 
 /*
@@ -530,22 +530,24 @@ static const struct PowerProfileState power_profile_states[] = {
  * powerprofile repository has all of them. Modes for profiles you do not
  * define in /etc/powerprofile.conf can simply be deleted.
  *
- * "bat" and "ac" force that profile as if the adapter said so; Auto hands
- * control back to the adapter and drops any manual override.
+ * "battery" and "balanced" are the on_battery and on_ac profiles of
+ * conf/powerprofile.conf: applying one by name forces it as if the adapter
+ * said so. Auto hands control back to the adapter and drops any manual
+ * override.
  */
-static const char *const args_profile_auto[]   = {"sudo", "-n", "powerprofile", "--auto", NULL};
-static const char *const args_profile_bat[]    = {"sudo", "-n", "powerprofile", "--profile", "bat",    NULL};
-static const char *const args_profile_ac[]     = {"sudo", "-n", "powerprofile", "--profile", "ac",     NULL};
-static const char *const args_profile_gaming[] = {"sudo", "-n", "powerprofile", "--profile", "gaming", NULL};
-static const char *const args_profile_saver[]  = {"sudo", "-n", "powerprofile", "--profile", "saver",  NULL};
+static const char *const args_profile_auto[]     = {"sudo", "-n", "powerprofile", "--auto", NULL};
+static const char *const args_profile_battery[]  = {"sudo", "-n", "powerprofile", "--profile", "battery",  NULL};
+static const char *const args_profile_balanced[] = {"sudo", "-n", "powerprofile", "--profile", "balanced", NULL};
+static const char *const args_profile_gaming[]   = {"sudo", "-n", "powerprofile", "--profile", "gaming",   NULL};
+static const char *const args_profile_saver[]    = {"sudo", "-n", "powerprofile", "--profile", "saver",    NULL};
 
 static const struct PowerProfileMode power_profile_modes[] = {
-	{ "Unknown",     NULL                },
-	{ "Auto",        args_profile_auto   },
-	{ "Battery",     args_profile_bat    },
-	{ "AC",          args_profile_ac     },
-	{ "Gaming",      args_profile_gaming },
-	{ "Power saver", args_profile_saver  },
+	{ "Unknown",  NULL                  },
+	{ "Auto",     args_profile_auto     },
+	{ "Battery",  args_profile_battery  },
+	{ "Balanced", args_profile_balanced },
+	{ "Gaming",   args_profile_gaming   },
+	{ "Saver",    args_profile_saver    },
 };
 
 #endif /* POWERPROFILE */
