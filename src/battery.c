@@ -9,8 +9,6 @@
 
 #define BATTERY_C
 
-#include "colors.h"
-#include "toggle.h"
 #include "gpuprofile.h"
 #include "powerprofile.h"
 #include "utils.h"
@@ -222,9 +220,9 @@ int
 main(void)
 {
 	/* Colour per icon index, parallel to icons_battery in config.h. */
-	static const enum Color icon_colors[] = {
-		clr_bat_crt, clr_bat_low, clr_bat_nrm,
-		clr_bat_nrm, clr_bat_nrm, clr_bat_chg
+	static const char *const icon_colors[] = {
+		"bat_crt", "bat_low", "bat_nrm",
+		"bat_nrm", "bat_nrm", "bat_chg"
 	};
 
 	static const struct Button buttons[] = {
@@ -236,22 +234,16 @@ main(void)
 	char          st[64];
 	char          text[16];
 	size_t        i;
-	int           ascii;
 	int           charging;
 
 	set_name("statusblocks-battery");
-	clr_init();
-	toggle_init();
-
-	ascii = !toggle_get(show_bat);
 
 	if (getbatterypath(base, sizeof(base)) != 0) {
 		/*
 		 * No battery is a normal state on a desktop, so render the
 		 * empty state rather than leaving the bar blank.
 		 */
-		printf("%s%s" CLR_NRM "\n", clr_get(icon_colors[0]),
-		       ascii ? ascii_bat_none : icons_battery[0]);
+		emit(icon_colors[0], icons_battery[0], ascii_bat_none);
 		return 0;
 	}
 
@@ -266,12 +258,8 @@ main(void)
 	if (i >= LEN(icons_battery))
 		i = 0;
 
-	if (ascii) {
-		ascii_format(text, sizeof(text), s.cap, charging);
-		printf("%s%s" CLR_NRM "\n", clr_get(icon_colors[i]), text);
-	} else {
-		printf("%s%s" CLR_NRM "\n", clr_get(icon_colors[i]), icons_battery[i]);
-	}
+	ascii_format(text, sizeof(text), s.cap, charging);
+	emit(icon_colors[i], icons_battery[i], text);
 
 	return 0;
 }

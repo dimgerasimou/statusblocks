@@ -5,8 +5,6 @@
 
 #define TIME_C
 
-#include "colors.h"
-#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -15,29 +13,27 @@ main(void)
 {
 	struct tm *lt = NULL;
 	time_t     ct = 0;
+	char       text[32];
+	char       rich[64];
 
 	set_name("statusblocks-time");
-	clr_init();
-	toggle_init();
 
 	ct = time(NULL);
 	lt = localtime(&ct);
-
-	printf("%s", clr_get(clr_tim));
-
-	if (toggle_get(show_tim))
-		printf("%s", icon_time);
 
 	/*
 	 * A block that exits without printing leaves the bar showing stale
 	 * text, so failures still emit a placeholder.
 	 */
-	if (lt)
-		printf("%.2d:%.2d" CLR_NRM "\n", lt->tm_hour, lt->tm_min);
-	else {
+	if (lt) {
+		snprintf(text, sizeof(text), "%.2d:%.2d", lt->tm_hour, lt->tm_min);
+	} else {
 		warn("localtime:");
-		printf("--:--" CLR_NRM "\n");
+		snprintf(text, sizeof(text), "--:--");
 	}
+
+	snprintf(rich, sizeof(rich), "%s%s", icon_time, text);
+	emit("tim", rich, text);
 
 	return 0;
 }

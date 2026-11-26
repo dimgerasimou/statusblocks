@@ -1,11 +1,11 @@
 # statusblocks
 
-A set of small programs, each printing one part of a status line. Meant for
-[dwmblocks](https://github.com/dimgerasimou/dwmasyncblocks), but they are plain
-executables that write a line to stdout, so any status bar that can run a command
-will do.
+A set of small programs, each printing one part of a status line, for
+[dwmasyncblocks](https://github.com/dimgerasimou/dwmasyncblocks). Each block
+prints its text in both an icon and a plain-ASCII form; dwmasyncblocks picks one
+and colours it, so the blocks know nothing about the bar.
 
-They are coloured, clickable, and configured in a single `config.h`.
+They are clickable and configured in a single `config.h`.
 
 ## Blocks
 
@@ -15,7 +15,8 @@ They are coloured, clickable, and configured in a single `config.h`.
 | `date` | day and month | **L** notification calendar, current day marked | — |
 | `battery` | charge level and state | **L** notification with capacity, status, power profile and GPU | — |
 | `memory` | memory in use | **R** task manager | htop |
-| `system` | pending updates and kernel release | **L** notification with per-source counts · **R** system upgrade | package manager |
+| `updates` | pending updates, hidden when there are none | **L** notification with per-source counts · **R** system upgrade | package manager |
+| `kernel` | kernel release | — | — |
 | `volume` | volume, muted state | **L** sink and source info · **M** equalizer · **R** mute · **scroll** volume | libpulse, a volume script |
 | `keyboard` | current layout | **L** next layout | a layout script |
 | `bluetooth` | adapter state | **L** TUI · **M** toggle adapter | bluez, bluetuith |
@@ -27,15 +28,15 @@ helpers from [dimgerasimou/binaries](https://github.com/dimgerasimou/binaries).
 Any executable taking the same arguments works: a `wpctl` or `setxkbmap` wrapper
 is fine. A missing program does not break the block, only the click.
 
-The `battery` block finds the battery itself, no path to configure. The `system`
+The `battery` block finds the battery itself, no path to configure. The `updates`
 block caches its update counts, so `checkupdates` and `paru` do not run on every
 refresh, and notices a package transaction immediately (see below). The calendar
 takes its month and day names from the locale.
 
 ## Requirements
 
-`pkg-config`, `libnotify`, `libX11`, and a nerd font in your bar. Per block:
-`libpulse` (volume), `libxkbfile` (keyboard), `dbus` (bluetooth), `libnm` and
+`pkg-config`, `libnotify`, and a nerd font in your bar. Per block:
+`libpulse` (volume), `libxkbfile` and `libX11` (keyboard), `dbus` (bluetooth), `libnm` and
 `glib` (internet). Each block links only what it uses, so a missing library stops
 that block and nothing else.
 
@@ -57,78 +58,31 @@ limits the set.
 `examples/blocks.h` has a working bar configuration with sensible intervals and
 signals for every block.
 
-## Colours
+## Output, colours and icons
 
-Defaults live in `config.h` and work out of the box. Anything in the X resource
-database overrides them without a rebuild:
-
-```
-statusblocks.clr_bat_crt:  #F38BA8
-statusblocks.clr_date:     #CBA6F7
-statusblocks.clr_tim:      #FAB387
-statusblocks.clr_cal:      #F38BA8
-```
-
-Names are the `enum Color` entries in `src/include/colors.h`. Values must be
-`#RRGGBB`. Colours are cached in `$XDG_RUNTIME_DIR` and refreshed when
-`xresources_path` (see below) changes, so only the first block of a session
-talks to X.
-
-## Icon style
-
-Every block's icon can be switched, per block, between its compiled-in glyph
-(usually a Nerd Font icon) and a plain-ASCII fallback — no nerd font, no
-rebuild required. Defaults live in `icon_defaults` in `config.h`; anything in
-the X resource database overrides them without a rebuild, e.g.
+Each block prints one line of tab-separated fields:
 
 ```
-statusblocks.icon_bat:  0
-statusblocks.icon_net:  0
+class=bat_nrm<TAB>rich=<glyph><TAB>plain=B:87%
 ```
 
-`1` selects the icon, `0` the fallback. Names are the `enum Toggle` entries
-in `src/include/toggle.h`. For `date`, `keyboard`, `memory`, `time` and
-`system`, the fallback is simply no icon, since the text that follows it
-already says what the block is. For `battery`, `bluetooth`, `internet`,
-`power` and `volume` the icon *is* the block's whole output, so the fallback
-carries real information instead of a lookalike glyph:
+`rich` is the icon form, `plain` the ASCII one, and `class` the colour class.
+Colours, the class table and the per-block choice between icon and ASCII form
+all live in dwmasyncblocks: its `config.h` holds the defaults, and X resources
+override them at runtime, e.g.
 
-| Block | Icon fallback |
-|---|---|
-| `battery` | `B:87%`, or `CHG` while charging, or `B:--` with no battery |
-| `volume` | `V:87%`, or `M:87%` while muted |
-| `internet` | `x` no connection · `eth` wired · `I`…`IIIII` wifi signal bars · `!` error |
-| `bluetooth` | `BT-` off · `BT+` on |
-| `power` | `PWR` |
+```
+statusblocks.clr_bat_crt:   #F38BA8
+statusblocks.icon_battery:  0
+```
 
-The battery and volume tags (`ascii_bat_tag`, `ascii_vol_tag`, ...) are
-configurable in `config.h`, same as everything else. Toggles are cached
-alongside colours in `$XDG_RUNTIME_DIR` and refreshed the same way.
+Changes made with `xrdb` show up immediately. The `date` block reads its
+calendar accent from `BLOCK_CLR_CAL`, which dwmasyncblocks exports, and falls
+back to `cal_clr_fallback` in `config.h`.
 
-## Cache invalidation
-
-Colours and icon toggles are resolved from X once per session and cached in
-`$XDG_RUNTIME_DIR`. The cache is rebuilt whenever `xresources_path` in
-`config.h` has a newer mtime than the cache, which is what makes "edit the
-file, run `xrdb -merge`" pick up immediately instead of waiting for the next
-login. It defaults to `~/.Xresources`; point it at whatever file you actually
-edit and reload if that's not it, e.g. `~/.config/xresources/Xresources`.
-Editing the file alone is enough to invalidate the cache — the actual values
-still come from the X server's live resource database, so an edit needs an
-`xrdb -merge` (or equivalent) to take effect, not just a save.
-
-### Other status bars
-
-The colour escape is two macros in `config.h`:
-
-| Bar | `CLR_FMT` | `CLR_NRM` |
-|---|---|---|
-| dwm + status2d | `"^c%s^"` | `"^d^"` |
-| Pango: waybar, i3bar | `"<span color='%s'>"` | `"</span>"` |
-| polybar | `"%%{F%s}"` | `"%%{F-}"` |
-| none | `"%.0s"` | `""` |
-
-Or build with `-DNO_COLOR` to drop colour and the X dependency entirely.
+Classes: `bat_crt` `bat_low` `bat_nrm` `bat_chg` `bt` `date` `net_nrm`
+`net_err` `sys_pkg` `sys_nrm` `kbd` `mem` `pwr` `tim` `vol_nrm` `vol_mut`, and
+`cal` for the calendar.
 
 ## Configuration
 
@@ -149,7 +103,7 @@ programs:
 
 ## Package updates
 
-The `system` block counts updates from two configurable sources, so it is not
+The `updates` block counts updates from two configurable sources, so it is not
 tied to pacman. Set `cmd_updates_primary`, `cmd_updates_secondary` and
 `update_watch_path`; apt, dnf and xbps equivalents are in the comments.
 
@@ -166,17 +120,18 @@ Type = Package
 Target = *
 
 [Action]
-Description = Refresh the statusblocks system block
+Description = Refresh the statusblocks updates block
 When = PostTransaction
-Exec = /usr/bin/pkill -RTMIN+9 dwmblocks
+Exec = /usr/bin/dwmblocks --update updates
 ```
 
 A left click always refreshes, cache or not.
 
 ## Hacking
 
-Blocks never abort while drawing: a failure warns on stderr and prints a
-placeholder, because a block that exits silently leaves stale text in the bar.
+Blocks print through `emit(class, rich, plain)` in `utils.h`, which takes care
+of the field format. They never abort while drawing: a failure warns on stderr
+and prints a placeholder, because a block that exits silently leaves stale text in the bar.
 Run a block by hand in a terminal to see those warnings, dwmblocks discards them.
 
 Clicks are a table:

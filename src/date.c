@@ -2,6 +2,7 @@
 
 #include <locale.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -12,8 +13,6 @@
 #define CAL_WIDTH 20
 #define CAL_DAY_WIDTH 2
 
-#include "colors.h"
-#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -288,9 +287,10 @@ static void
 on_left(void *ctx)
 {
 	struct tm *lt = NULL;
-	char       body[CAL_SIZE];
-	char       head[HEAD_SIZE];
-	time_t     ct = 0;
+	const char *accent;
+	char        body[CAL_SIZE];
+	char        head[HEAD_SIZE];
+	time_t      ct = 0;
 
 	(void)ctx;
 
@@ -301,7 +301,11 @@ on_left(void *ctx)
 		return;
 	}
 
-	if (cal_render(body, sizeof(body), clr_hex(clr_cal), lt->tm_mday,
+	accent = getenv("BLOCK_CLR_CAL");
+	if (!accent)
+		accent = cal_clr_fallback;
+
+	if (cal_render(body, sizeof(body), accent, lt->tm_mday,
 	               lt->tm_wday, lt->tm_mon, lt->tm_year + 1900,
 	               calendar_week_start) != 0 ||
 	    cal_heading(head, sizeof(head), lt->tm_mon, lt->tm_year + 1900) != 0) {
@@ -321,31 +325,29 @@ main(void)
 
 	struct tm *lt = NULL;
 	time_t     ct = 0;
+	char       text[32];
+	char       rich[64];
 
 	set_name("statusblocks-date");
 
 	/* Month and weekday names in the calendar follow the user's locale. */
 	setlocale(LC_TIME, "");
 
-	clr_init();
-	toggle_init();
 
 	dispatch(buttons, LEN(buttons), NULL);
 
 	ct = time(NULL);
 	lt = localtime(&ct);
 
-	printf("%s", clr_get(clr_date));
-
-	if (toggle_get(show_date))
-		printf("%s", icon_date);
-
-	if (lt)
-		printf("%02d/%02d" CLR_NRM "\n", lt->tm_mday, lt->tm_mon + 1);
-	else {
+	if (lt) {
+		snprintf(text, sizeof(text), "%02d/%02d", lt->tm_mday, lt->tm_mon + 1);
+	} else {
 		warn("localtime:");
-		printf("--/--" CLR_NRM "\n");
+		snprintf(text, sizeof(text), "--/--");
 	}
+
+	snprintf(rich, sizeof(rich), "%s%s", icon_date, text);
+	emit("date", rich, text);
 
 	return 0;
 }

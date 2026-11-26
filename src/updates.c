@@ -7,18 +7,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
 
-#define SYSTEM_C
+#define UPDATES_C
 #define BUF_SIZE   64
 #define BODY_SIZE  128
 #define CACHE_NAME "statusblocks-updates"
 #define LEN(a)     (sizeof(a) / sizeof((a)[0]))
 
-#include "colors.h"
-#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -231,54 +228,30 @@ main(void)
 		{ 3, on_right },
 	};
 
-	struct utsname  un;
-	struct Updates  u = { -1, -1 };
-	char           *release = NULL;
-	unsigned int    icon;
+	struct Updates u = { -1, -1 };
+	char           rich[64] = "";
+	char           plain[64] = "";
 
-	set_name("statusblocks-system");
-	clr_init();
-	toggle_init();
-
-	icon = toggle_get(show_sys);
+	set_name("statusblocks-updates");
 
 	dispatch(buttons, LEN(buttons), &u);
 
 	if (u.primary < 0 || u.secondary < 0)
 		getcounts(&u);
 
-	if (show_release) {
-		if (uname(&un) != 0) {
-			warn("uname():");
-		} else {
-			char *dash;
+	if (u.primary > 0 || u.secondary > 0) {
+		int total = u.primary + u.secondary;
 
-			/* strip a suffix like "-arch1-1" in place */
-			release = un.release;
-			dash = strchr(release, '-');
-			if (dash)
-				*dash = '\0';
+		if (show_update_count) {
+			snprintf(rich, sizeof(rich), "%s %d", icon_updates, total);
+			snprintf(plain, sizeof(plain), "%s%d", ascii_updates, total);
+		} else {
+			snprintf(rich, sizeof(rich), "%s", icon_updates);
+			snprintf(plain, sizeof(plain), "%s", ascii_updates);
 		}
 	}
 
-	if (u.primary > 0 || u.secondary > 0) {
-		printf("%s", clr_get(clr_sys_pkg));
-		if (icon)
-			printf("%s ", icon_system_pkg);
-		else
-			printf("%s", ascii_system_pkg);
-		if (show_update_count)
-			printf("%d ", u.primary + u.secondary);
-	}
-
-	printf("%s", clr_get(clr_sys_nrm));
-	if (icon)
-		printf("%s", icon_system_kernel);
-
-	if (show_release && release && *release)
-		printf(" %s", release);
-
-	printf(CLR_NRM "\n");
+	emit("sys_pkg", rich, plain);
 
 	return 0;
 }

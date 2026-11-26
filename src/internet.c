@@ -12,22 +12,20 @@
 #define INTERNET_C
 #define LEN(a) (sizeof(a) / sizeof((a)[0]))
 
-#include "colors.h"
-#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
 
 /* Colour per icon index, parallel to icons_internet in config.h. */
-static const enum Color icon_colors[] = {
-	clr_net_err,
-	clr_net_nrm,
-	clr_net_nrm,
-	clr_net_nrm,
-	clr_net_nrm,
-	clr_net_nrm,
-	clr_net_nrm,
-	clr_net_err
+static const char *const icon_colors[] = {
+	"net_err",
+	"net_nrm",
+	"net_nrm",
+	"net_nrm",
+	"net_nrm",
+	"net_nrm",
+	"net_nrm",
+	"net_err"
 };
 
 
@@ -328,13 +326,8 @@ main(void)
 
 	struct Context      c = { NULL, 0 };
 	unsigned int        state = 0;
-	const char *const  *icons;
 
 	set_name("statusblocks-internet");
-	clr_init();
-	toggle_init();
-
-	icons = toggle_get(show_net) ? icons_internet : ascii_internet;
 
 	nminit(&c.client);
 
@@ -350,7 +343,7 @@ main(void)
 	}
 
 	state = clampstate(state);
-	printf("%s%s" CLR_NRM "\n", clr_get(icon_colors[state]), icons[state]);
+	emit(icon_colors[state], icons_internet[state], ascii_internet[state]);
 
 	return 0;
 }

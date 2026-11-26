@@ -44,22 +44,21 @@ PULSE_LIBS    := $(shell pkg-config --libs libpulse)
 DBUS_CFLAGS   := $(call sysinc,dbus-1)
 DBUS_LIBS     := $(shell pkg-config --libs dbus-1)
 
-# utils.c always needs libnotify; colors.c and toggle.c always need Xlib.
+# utils.c always needs libnotify.
 COMMON_CFLAGS := $(NOTIFY_CFLAGS)
-COMMON_LIBS   := $(NOTIFY_LIBS) -lX11
+COMMON_LIBS   := $(NOTIFY_LIBS)
 
 # Shared objects linked into every block
-UTILS_SRC := $(SRC_DIR)/utils.c $(SRC_DIR)/colors.c $(SRC_DIR)/toggle.c \
-             $(SRC_DIR)/gpuprofile.c $(SRC_DIR)/powerprofile.c
-UTILS_OBJ := $(OBJ_DIR)/utils.o $(OBJ_DIR)/colors.o $(OBJ_DIR)/toggle.o \
-             $(OBJ_DIR)/gpuprofile.o $(OBJ_DIR)/powerprofile.o
+UTILS_SRC := $(SRC_DIR)/utils.c $(SRC_DIR)/gpuprofile.c $(SRC_DIR)/powerprofile.c
+UTILS_OBJ := $(OBJ_DIR)/utils.o $(OBJ_DIR)/gpuprofile.o $(OBJ_DIR)/powerprofile.o
 
 # Block configuration - comment out blocks you don't need
 BLOCKS := time \
           keyboard \
           battery \
           date \
-          system \
+          updates \
+          kernel \
           bluetooth \
           internet \
           memory \
@@ -72,7 +71,7 @@ BINARIES   := $(addprefix $(BIN_DIR)/, $(BLOCKS))
 DEPS       := $(BLOCK_OBJS:.o=.d) $(UTILS_OBJ:.o=.d)
 
 # Per-block extras, applied to both the compile and the link
-$(OBJ_DIR)/keyboard.o  $(BIN_DIR)/keyboard:  BLOCK_LIBS := -lxkbfile
+$(OBJ_DIR)/keyboard.o  $(BIN_DIR)/keyboard:  BLOCK_LIBS := -lxkbfile -lX11
 $(OBJ_DIR)/bluetooth.o $(BIN_DIR)/bluetooth: BLOCK_CFLAGS := $(DBUS_CFLAGS)
 $(OBJ_DIR)/bluetooth.o $(BIN_DIR)/bluetooth: BLOCK_LIBS := $(DBUS_LIBS)
 $(OBJ_DIR)/internet.o  $(BIN_DIR)/internet:  BLOCK_CFLAGS := $(NM_CFLAGS)

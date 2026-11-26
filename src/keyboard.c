@@ -12,8 +12,6 @@
 #define KEYBOARD_C
 #define LEN(a) (sizeof(a) / sizeof((a)[0]))
 
-#include "colors.h"
-#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -100,8 +98,6 @@ main(void)
 	char *layout = NULL;
 
 	set_name("statusblocks-keyboard");
-	clr_init();
-	toggle_init();
 
 	dispatch(buttons, LEN(buttons), NULL);
 
@@ -127,11 +123,12 @@ main(void)
 		goto cleanup;
 	}
 
-	printf("%s", clr_get(clr_kbd));
+	{
+		char rich[64];
 
-	if (toggle_get(show_kbd))
-		printf(" ");
-	printf("%s" CLR_NRM "\n", layout);
+		snprintf(rich, sizeof(rich), "%s%s", icon_keyboard, layout);
+		emit("kbd", rich, layout);
+	}
 
 cleanup:
 	free(layout);

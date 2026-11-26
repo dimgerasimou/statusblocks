@@ -9,8 +9,6 @@
 #define BUF_SIZE 256
 #define LEN(a)   (sizeof(a) / sizeof((a)[0]))
 
-#include "colors.h"
-#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -73,24 +71,22 @@ main(void)
 	};
 
 	long used_kib;
+	char text[32];
+	char rich[64];
 
 	set_name("statusblocks-memory");
-	clr_init();
-	toggle_init();
 
 	dispatch(buttons, LEN(buttons), NULL);
 
 	used_kib = getmemoryusage_kib();
 
-	printf("%s", clr_get(clr_mem));
-
-	if (toggle_get(show_mem))
-		printf("%s", icon_memory);
-
 	if (used_kib < 0)
-		printf("--" CLR_NRM "\n");
+		snprintf(text, sizeof(text), "--");
 	else
-		printf("%.1fGiB" CLR_NRM "\n", (double)used_kib / 1024.0 / 1024.0);
+		snprintf(text, sizeof(text), "%.1fGiB", (double)used_kib / 1024.0 / 1024.0);
+
+	snprintf(rich, sizeof(rich), "%s%s", icon_memory, text);
+	emit("mem", rich, text);
 
 	return 0;
 }

@@ -11,8 +11,6 @@
 #define VOLUME_C
 #define LEN(a) (sizeof(a) / sizeof((a)[0]))
 
-#include "colors.h"
-#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -287,18 +285,16 @@ main(void)
 
 	AudioInfo     a[AI_COUNT] = {{0, 0, 0}, {0, 0, 0}};
 	char          v[16] = "";
-	const char   *icon = "";
+	char          rich[64];
+	char          plain[64];
+	const char   *ricon = icons_volume[4];
+	const char   *picon = "";
 	unsigned int  volume;
 	unsigned int  mute;
-	int           ascii;
+	int           pad = volume_padding ? 3 : 0;
+	int           n;
 
 	set_name("statusblocks-volume");
-	clr_init();
-	toggle_init();
-
-	ascii = !toggle_get(show_vol);
-	if (!ascii)
-		icon = icons_volume[4];
 
 	getaudioinfo(a);
 
@@ -313,38 +309,30 @@ main(void)
 	}
 
 	if (display_type != 2) {
-		if (ascii) {
-			icon = mute ? ascii_vol_mute_tag : ascii_vol_tag;
-		} else {
-			if (volume > 66)
-				icon = icons_volume[3];
-			else if (volume > 33)
-				icon = icons_volume[2];
-			else
-				icon = icons_volume[1];
+		picon = mute ? ascii_vol_mute_tag : ascii_vol_tag;
 
-			if (mute)
-				icon = icons_volume[0];
-		}
+		if (mute)
+			ricon = icons_volume[0];
+		else if (volume > 66)
+			ricon = icons_volume[3];
+		else if (volume > 33)
+			ricon = icons_volume[2];
+		else
+			ricon = icons_volume[1];
 	}
+
+	n = snprintf(v, sizeof(v), "%*u%%", pad, volume);
+	if (n < 0 || (size_t)n >= sizeof(v))
+		warn("volume string truncated");
 
 	/*
-	 * display_type == 1 asks for the icon alone, which a Nerd Font glyph
-	 * can carry by shape; the ascii_vol_tag/ascii_vol_mute_tag fallback
-	 * cannot, so the percentage is appended in ascii mode. While muted,
-	 * ascii_vol_mute_tag alone ("M") already conveys the state, so the
-	 * percentage is skipped.
+	 * display_type == 1 hides the percentage, which a glyph can carry by
+	 * shape; the ASCII tags cannot, so the plain text keeps it. While
+	 * muted, ascii_vol_mute_tag alone already conveys the state.
 	 */
-	if ((display_type != 1 || ascii) && !(ascii && mute)) {
-		int pad = volume_padding ? 3 : 0;
-		int n   = snprintf(v, sizeof(v), "%*u%%", pad, volume);
-
-		if (n < 0 || (size_t)n >= sizeof(v))
-			warn("volume string truncated");
-	}
-
-	printf("%s%s%s" CLR_NRM "\n",
-	       clr_get(mute ? clr_vol_mut : clr_vol_nrm), icon, v);
+	snprintf(rich, sizeof(rich), "%s%s", ricon, display_type != 1 ? v : "");
+	snprintf(plain, sizeof(plain), "%s%s", picon, mute ? "" : v);
+	emit(mute ? "vol_mut" : "vol_nrm", rich, plain);
 
 	return 0;
 }

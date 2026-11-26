@@ -5,8 +5,6 @@
 
 #define BLUETOOTH_C
 
-#include "colors.h"
-#include "toggle.h"
 #include "utils.h"
 #include "config.h"
 
@@ -212,14 +210,9 @@ main(void)
 		{ 2, on_middle },
 	};
 
-	int                 state;
-	const char *const  *icons;
+	int state;
 
 	set_name("statusblocks-bluetooth");
-	clr_init();
-	toggle_init();
-
-	icons = toggle_get(show_bt) ? icons_bluetooth : ascii_bluetooth;
 
 	dispatch(buttons, LEN(buttons), NULL);
 
@@ -227,7 +220,7 @@ main(void)
 	if (state < 0)
 		state = 0;
 
-	printf("%s%s" CLR_NRM "\n", clr_get(clr_bt), icons[state ? 1 : 0]);
+	emit("bt", icons_bluetooth[state ? 1 : 0], ascii_bluetooth[state ? 1 : 0]);
 
 	return 0;
 }

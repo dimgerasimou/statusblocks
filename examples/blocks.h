@@ -1,9 +1,7 @@
 /*
- * Example status bar configuration for statusblocks.
- *
- * Two forms are given below, since dwmblocks forks differ. Use whichever
- * matches yours and delete the other; the intervals and signals are the
- * point, not the syntax.
+ * Example dwmasyncblocks configuration for statusblocks. Only the blocks
+ * array is shown; take the colours table and the remaining settings from
+ * dwmasyncblocks' config.def.h.
  *
  * Intervals are chosen so that each block costs about what it is worth:
  *
@@ -15,14 +13,14 @@
  *   volume      0  signal only; the volume script signals after changing
  *   bluetooth  60  a D-Bus round trip, so not more often
  *   internet   10  cheap, and the signal strength moves
- *   system    600  the counts are cached anyway, see below
+ *   updates   600  the counts are cached anyway, see below
+ *   kernel      0  changes only on reboot
  *   power       0  a button, never updates on its own
  *
- * Blocks with interval 0 are updated only by a signal. Send one with
- * `pkill -RTMIN+<signal> dwmblocks` after the relevant event: the volume
- * script should signal 8, the layout switcher 4, and so on.
+ * Blocks with interval 0 are updated only on request, e.g.
+ * `dwmblocks --update volume` from the volume script.
  *
- * The system block queries the network, so it caches its counts (see
+ * The updates block queries the network, so it caches its counts (see
  * update_cache_ttl in config.h). Pair it with this pacman hook, dropped in
  * /etc/pacman.d/hooks/, so the count drops to zero right after an upgrade
  * rather than at the next interval:
@@ -35,63 +33,35 @@
  *   Target = *
  *
  *   [Action]
- *   Description = Refresh the statusblocks system block
+ *   Description = Refresh the statusblocks updates block
  *   When = PostTransaction
- *   Exec = /usr/bin/pkill -RTMIN+9 dwmblocks
+ *   Exec = /usr/bin/dwmblocks --update updates
  *
  * The block already detects the transaction on its own by watching
  * update_watch_path, so the hook only needs to make it re-run.
  *
- * BLOCKDIR below must match where `make install` put the binaries; the
- * default is ~/.local/bin/statusblocks.
+ * The Icons column picks each block's icon (1) or ASCII (0) form; the
+ * statusblocks.icon_<block> X resource overrides it at runtime.
  */
 
-#define BLOCKDIR "/home/user/.local/bin/statusblocks"
-
-/* ------------------------------------------------------------------
- * Form A: vanilla dwmblocks, an array of Block structs.
- * Enable this one or Form B below, never both: they define the same
- * symbol.
- * ------------------------------------------------------------------ */
-#if 0
-static const Block blocks[] = {
-	/* icon  command                     interval  signal */
-	{ "",    BLOCKDIR "/internet",         10,      1 },
-	{ "",    BLOCKDIR "/bluetooth",        60,      2 },
-	{ "",    BLOCKDIR "/memory",           10,      3 },
-	{ "",    BLOCKDIR "/keyboard",          0,      4 },
-	{ "",    BLOCKDIR "/volume",            0,      5 },
-	{ "",    BLOCKDIR "/battery",          30,      6 },
-	{ "",    BLOCKDIR "/date",           3600,      7 },
-	{ "",    BLOCKDIR "/time",             60,      8 },
-	{ "",    BLOCKDIR "/system",          600,      9 },
-	{ "",    BLOCKDIR "/power",             0,     10 },
-};
-
-static char delim[] = " ";
-static unsigned int delimLen = 5;
-#endif
-
-/* ------------------------------------------------------------------
- * Form B: dwmasyncblocks, an X macro of (icon, command, interval, signal).
- * ------------------------------------------------------------------ */
 #define CLICKABLE_BLOCKS 1
 #define LEADING_DELIMITER 1
 #define DELIMITER " "
-#define TRIM_TRAILING_SPACES 0
+#define TRIM_TRAILING_SPACES 1
 
 #define BLOCK(NAME) "$HOME/.local/bin/statusblocks/" #NAME
 
 const Block blocks[] = {
-	/*Command             Update Interval   Update Signal */
-	{ BLOCK("volume"),    0,                10 },
-	{ BLOCK("memory"),    6,                12 },
-	{ BLOCK("keyboard"),  0,                3  },
-	{ BLOCK("system"),    360,              4  },
-	{ BLOCK("date"),      300,              6  },
-	{ BLOCK("time"),      1,                5  },
-	{ BLOCK("internet"),  5,                1  },
-	{ BLOCK("battery"),   5,                2  },
-	{ BLOCK("bluetooth"), 5,                15 },
-	{ BLOCK("power"),     0,                14 },
+	/*Command             Update Interval   Update Signal   Icons */
+	{ BLOCK("internet"),  10,               1,              1 },
+	{ BLOCK("bluetooth"), 60,               2,              1 },
+	{ BLOCK("memory"),    10,               3,              1 },
+	{ BLOCK("keyboard"),  0,                4,              1 },
+	{ BLOCK("volume"),    0,                5,              1 },
+	{ BLOCK("battery"),   30,               6,              1 },
+	{ BLOCK("date"),      3600,             7,              1 },
+	{ BLOCK("time"),      60,               8,              1 },
+	{ BLOCK("updates"),   600,              9,              1 },
+	{ BLOCK("kernel"),    0,                11,             1 },
+	{ BLOCK("power"),     0,                10,             1 },
 };

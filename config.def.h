@@ -6,6 +6,10 @@
 /*
  * HOW THIS FILE IS ORGANISED
  *
+ * Colours and the choice between icons and ASCII text are not set here:
+ * every block prints both its icon and ASCII form, and dwmblocks picks one
+ * and colours it (see its config.h and the statusblocks.* X resources).
+ *
  * Everything before the first "#ifdef" is shared by every block. After
  * that, each block has its own section guarded by a macro that only that
  * block defines: battery.c does "#define BATTERY_C" before including this
@@ -28,95 +32,6 @@
  */
 static const char term_cmd[] = "st";
 static const char term_title_opt[] = "-t";
-
-/*
- * Path to the X resources file whose mtime marks the colour/icon cache
- * stale, e.g. right after you edit it and run `xrdb -merge`. Accepts '~'
- * and '$VAR' (see envexpand() in utils.h). Point this at whatever file you
- * actually edit and reload: plenty of setups use something other than the
- * traditional ~/.Xresources, e.g. ~/.config/xresources/Xresources.
- */
-static const char xresources_path[] = "~/.Xresources";
-
-/* ============================================================
- * COLOURS
- * ============================================================ */
-
-/*
- * How a colour is written into the status line. CLR_FMT must contain
- * exactly one %s, which receives a "#RRGGBB" string; CLR_NRM ends the
- * coloured run. The defaults target dwm's status2d patch.
- *
- *   status2d (dwm)   "^c%s^"                  "^d^"
- *   Pango (waybar,
- *   polybar, i3bar)  "<span color='%s'>"      "</span>"
- *   polybar native   "%%{F%s}"                "%%{F-}"
- *   no colour        "%.0s"                   ""
- */
-#define CLR_FMT "^c%s^"
-#define CLR_NRM "^d^"
-
-/*
- * Default colours, listed in enum Color order (see src/include/colors.h).
- * An empty string leaves that colour unset, so the block renders in the
- * status bar's own colour. Matching entries in the X resource database
- * override these at runtime, e.g.
- *
- *   statusblocks.clr_bat_crt: #F38BA8
- *
- * A compile-time check in colors.c fails the build if this list and the
- * enum ever fall out of step.
- */
-static const char *const clr_defaults[] = {
-	"#F38BA8",  /* clr_bat_crt  battery critical */
-	"#F9E2AF",  /* clr_bat_low  battery low      */
-	"#CDD6F4",  /* clr_bat_nrm  battery normal   */
-	"#F9E2AF",  /* clr_bat_chg  battery charging */
-	"#CDD6F4",  /* clr_bt       bluetooth        */
-	"#CDD6F4",  /* clr_date     date             */
-	"#CDD6F4",  /* clr_net_nrm  network normal   */
-	"#F38BA8",  /* clr_net_err  network error    */
-	"#89B4FA",  /* clr_sys_pkg  pending updates  */
-	"#CDD6F4",  /* clr_sys_nrm  kernel release   */
-	"#CDD6F4",  /* clr_kbd      keyboard layout  */
-	"#CDD6F4",  /* clr_mem      memory           */
-	"#F38BA8",  /* clr_pwr      power menu       */
-	"#CDD6F4",  /* clr_tim      clock            */
-	"#CDD6F4",  /* clr_vol_nrm  volume normal    */
-	"#F38BA8",  /* clr_vol_mut  volume muted     */
-	"#F38BA8"   /* clr_cal      calendar accent   */
-};
-
-/* ============================================================
- * ICON STYLE
- * ============================================================ */
-
-/*
- * Whether each block renders its compiled-in icon (typically a Nerd Font
- * glyph) or that block's plain-ASCII fallback. 1 selects the icon, 0 the
- * fallback. Listed in enum Toggle order (see src/include/toggle.h).
- * Matching entries in the X resource database override these at runtime,
- * e.g.
- *
- *   statusblocks.icon_bat: 0
- *
- * A compile-time check in toggle.c fails the build if this list and the
- * enum ever fall out of step. For battery, bluetooth, internet, power and
- * volume the icon is the whole block, so their fallback is a short ASCII
- * tag rather than nothing, and stays distinct from every other block's.
- */
-static const unsigned int icon_defaults[] = {
-	1,  /* show_bat  battery       */
-	1,  /* show_bt   bluetooth     */
-	1,  /* show_date date/calendar */
-	1,  /* show_kbd  keyboard      */
-	1,  /* show_mem  memory        */
-	1,  /* show_net  internet      */
-	1,  /* show_pwr  power menu    */
-	1,  /* show_sys  system        */
-	1,  /* show_tim  clock         */
-	1,  /* show_vol  volume        */
-};
 
 /* ============================================================
  * GPU PROFILE
@@ -163,7 +78,7 @@ static const char *const icons_battery[] = {
 static const char icon_battery_notif[] = "battery";
 
 /*
- * Plain-ASCII fallback used when show_bat is 0. ascii_bat_tag is followed
+ * Plain-ASCII text used in ASCII mode. ascii_bat_tag is followed
  * by the live percentage, e.g. "B:87%"; ascii_bat_chg replaces the whole
  * thing while charging, and ascii_bat_none when no battery is present.
  */
@@ -181,8 +96,8 @@ static const char ascii_bat_none[] = "B:--";
 const char *bt_tui_cmd[] = { term_cmd, "bluetuith", NULL };
 
 /*
- * Plain-ASCII fallback: [0] disabled, [1] enabled. Used in place of
- * icons_bluetooth when show_bt is 0.
+ * Plain-ASCII text: [0] disabled, [1] enabled. Used in place of
+ * icons_bluetooth in ASCII mode.
  */
 static const char *const ascii_bluetooth[] = {
 	"BT-",
@@ -208,7 +123,10 @@ static const char *const icons_bluetooth[] = {
  */
 static const int calendar_week_start = 1;
 
-/* Icon shown in the bar when show_date is set. */
+/* Calendar accent, used when dwmblocks doesn't export BLOCK_CLR_CAL. */
+static const char cal_clr_fallback[] = "#F38BA8";
+
+/* Icon shown before the date in icon mode. */
 static const char icon_date[] = " ";
 
 #endif
@@ -244,8 +162,8 @@ static const char *const icons_internet[] = {
 };
 
 /*
- * Plain-ASCII fallback, same order as icons_internet. Used in place of it
- * when show_net is 0.
+ * Plain-ASCII text, same order as icons_internet. Used in place of it
+ * in ASCII mode.
  */
 static const char *const ascii_internet[] = {
 	"down",  /* 0: no primary connection / unknown */
@@ -270,13 +188,12 @@ static const char menu_internet[] = "󱛄 Toggle Wifi\t0\n󱛃 Connect to wifi\t
 #endif
 
 /* ============================================================
- * SYSTEM BLOCK
+ * UPDATES BLOCK
  * ============================================================ */
-#ifdef SYSTEM_C
+#ifdef UPDATES_C
 
 /*
- * The block counts pending updates from two sources and shows the kernel
- * release. Nothing below is distribution-specific; the defaults are for
+ * The block counts pending updates from two sources. Nothing below is distribution-specific; the defaults are for
  * Arch, and the comments give equivalents for other package managers.
  * Set a command to "" to disable that source.
  *
@@ -309,21 +226,17 @@ const char *args_update_cmd[] = {
 	NULL
 };
 
-/* Show release info in bar */
-const unsigned int show_release = 1;
-
-/* Show update count in bar*/
+/* Show update count in bar */
 const unsigned int show_update_count = 1;
 
-/* Bar icons: the kernel (tux) glyph and the pending-updates glyph. */
-static const char icon_system_kernel[] = "";
-static const char icon_system_pkg[] = "󰏖";
+/* Bar icon for pending updates. */
+static const char icon_updates[] = "󰏖";
 
 /*
- * Plain-ASCII tag printed before the pending-update count when show_sys
- * is 0, so the number isn't left bare (e.g. "U:5").
+ * Plain-ASCII tag printed before the pending-update count in ASCII mode,
+ * so the number isn't left bare (e.g. "U:5").
  */
-static const char ascii_system_pkg[] = "U:";
+static const char ascii_updates[] = "U:";
 
 /* Notification icons, one per update source. */
 static const char icon_updates_primary[]   = "󰏖";
@@ -346,6 +259,15 @@ static const char update_watch_path[] = "/var/lib/pacman/local";
 #endif
 
 /* ============================================================
+ * KERNEL BLOCK
+ * ============================================================ */
+#ifdef KERNEL_C
+
+/* Bar icon, shown before the release in icon mode. */
+static const char icon_kernel[] = "";
+#endif
+
+/* ============================================================
  * KEYBOARD BLOCK
  * ============================================================ */
 #ifdef KEYBOARD_C
@@ -360,7 +282,7 @@ static const char path_language_switch[] = "~/.local/bin/dwm-xkbnext";
 const char *args_language_switch[] = { "dwm-xkbnext", NULL };
 
 
-/* Icon shown in the bar when show_kbd is set. */
+/* Icon shown before the keyboard layout in icon mode. */
 static const char icon_keyboard[] = " ";
 #endif
 
@@ -373,7 +295,7 @@ static const char icon_keyboard[] = " ";
 const char *args_task_manager[] = { term_cmd, "sh", "-c", "htop", NULL };
 
 
-/* Icon shown in the bar when show_mem is set. */
+/* Icon shown before the memory usage in icon mode. */
 static const char icon_memory[] = " ";
 #endif
 
@@ -397,9 +319,9 @@ const char *args_clipboard_delete[] = {"sh", "-c", "clipdel -d \".*\"", NULL};
 
 
 /* Bar icon. */
-static const char icon_power[] = "";
+static const char icon_power[] = " ";
 
-/* Plain-ASCII fallback for icon_power, used when show_pwr is 0. */
+/* Plain-ASCII text for icon_power, used in ASCII mode. */
 static const char ascii_power[] = "PWR";
 
 /* xmenu prompts. Each line is "<label>\t<value>". */
@@ -520,6 +442,7 @@ static const struct PowerProfileState power_profile_states[] = {
 	{ "Unknown",  ""         },
 	{ "Battery",  "battery"  },
 	{ "Balanced", "balanced" },
+	{ "Docked",   "docked"   },
 	{ "Gaming",   "gaming"   },
 	{ "Saver",    "saver"    },
 };
@@ -538,6 +461,7 @@ static const struct PowerProfileState power_profile_states[] = {
 static const char *const args_profile_auto[]     = {"sudo", "-n", "powerprofile", "--auto", NULL};
 static const char *const args_profile_battery[]  = {"sudo", "-n", "powerprofile", "--profile", "battery",  NULL};
 static const char *const args_profile_balanced[] = {"sudo", "-n", "powerprofile", "--profile", "balanced", NULL};
+static const char *const args_profile_docked[]   = {"sudo", "-n", "powerprofile", "--profile", "docked",   NULL};
 static const char *const args_profile_gaming[]   = {"sudo", "-n", "powerprofile", "--profile", "gaming",   NULL};
 static const char *const args_profile_saver[]    = {"sudo", "-n", "powerprofile", "--profile", "saver",    NULL};
 
@@ -546,6 +470,7 @@ static const struct PowerProfileMode power_profile_modes[] = {
 	{ "Auto",     args_profile_auto     },
 	{ "Battery",  args_profile_battery  },
 	{ "Balanced", args_profile_balanced },
+	{ "Docked",   args_profile_docked   },
 	{ "Gaming",   args_profile_gaming   },
 	{ "Saver",    args_profile_saver    },
 };
@@ -558,7 +483,7 @@ static const struct PowerProfileMode power_profile_modes[] = {
  * ============================================================ */
 #ifdef TIME_C
 
-/* Icon shown in the bar when show_tim is set. */
+/* Icon shown before the time in icon mode. */
 static const char icon_time[] = " ";
 #endif
 
@@ -604,7 +529,7 @@ static const char *const icons_volume[] = {
 };
 
 /*
- * Plain-ASCII tag used when show_vol is 0, printed right before the
+ * Plain-ASCII tag used in ASCII mode, printed right before the
  * volume percentage (e.g. "V:87%"). ascii_vol_mute_tag replaces both the
  * tag and the percentage while muted (e.g. "M").
  */

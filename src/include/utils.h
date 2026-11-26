@@ -49,8 +49,11 @@ struct Button {
  */
 void dispatch(const struct Button *buttons, const size_t n, void *ctx);
 
-/* Returns 1 if 's' is exactly "#RRGGBB". */
-int ishexcolor(const char *s);
+/*
+ * Prints the block's status line for dwmblocks: 'rich' is shown in icon
+ * mode, 'plain' otherwise, coloured by class 'cls' (may be NULL).
+ */
+void emit(const char *cls, const char *rich, const char *plain);
 
 /*
  * Forks and execs 'args' in a new session, searching PATH for args[0].

@@ -529,30 +529,25 @@ dispatch(const struct Button *buttons, const size_t n, void *ctx)
 	}
 }
 
-static int
-ishexdigit(char c)
+static void
+putfield(const char *key, const char *val)
 {
-	if (c >= 'a' && c <= 'f')
-		return 1;
-	if (c >= 'A' && c <= 'F')
-		return 1;
-	if (c >= '0' && c <= '9')
-		return 1;
-	return 0;
+	printf("%s=", key);
+	for (; val && *val; val++)
+		putchar(*val == '\t' || *val == '\n' ? ' ' : *val);
 }
 
-int
-ishexcolor(const char *s)
+void
+emit(const char *cls, const char *rich, const char *plain)
 {
-	if (!s || strlen(s) != 7 || s[0] != '#')
-		return 0;
-
-	for (size_t i = 1; i < 7; i++) {
-		if (!ishexdigit(s[i]))
-			return 0;
+	if (cls && *cls) {
+		putfield("class", cls);
+		putchar('\t');
 	}
-
-	return 1;
+	putfield("rich", rich);
+	putchar('\t');
+	putfield("plain", plain);
+	putchar('\n');
 }
 
 int
