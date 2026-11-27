@@ -202,6 +202,70 @@ on_middle(void *ctx)
 	togglebt();
 }
 
+static void
+show(int state)
+{
+	if (state < 0)
+		state = 0;
+
+	emit("bt", icons_bluetooth[state ? 1 : 0], ascii_bluetooth[state ? 1 : 0]);
+}
+
+/*
+ * Powered flips arrive as PropertiesChanged on Adapter1; adapters coming
+ * and going (rfkill, USB dongles) as ObjectManager signals; a restarted
+ * bluetoothd as NameOwnerChanged. Losing the bus exits the process.
+ */
+static int
+watch(void)
+{
+	static const char *const rules[] = {
+		"type='signal',sender='org.bluez',interface='org.freedesktop.DBus.Properties',"
+		"member='PropertiesChanged',arg0='org.bluez.Adapter1'",
+		"type='signal',sender='org.bluez',interface='org.freedesktop.DBus.ObjectManager'",
+		"type='signal',sender='org.freedesktop.DBus',interface='org.freedesktop.DBus',"
+		"member='NameOwnerChanged',arg0='org.bluez'",
+	};
+
+	DBusConnection *conn;
+	DBusMessage    *msg;
+	DBusError       err;
+
+	dbus_error_init(&err);
+
+	conn = dbus_bus_get(DBUS_BUS_SYSTEM, &err);
+	if (!conn) {
+		warn("Failed to connect to the DBus system bus: %s", err.message);
+		dbus_error_free(&err);
+		return 1;
+	}
+
+	for (size_t i = 0; i < LEN(rules); i++) {
+		dbus_bus_add_match(conn, rules[i], &err);
+		if (dbus_error_is_set(&err)) {
+			warn("D-Bus match: %s", err.message);
+			dbus_error_free(&err);
+			return 1;
+		}
+	}
+
+	show(findadapter(conn, NULL));
+
+	while (dbus_connection_read_write(conn, -1)) {
+		int changed = 0;
+
+		while ((msg = dbus_connection_pop_message(conn))) {
+			changed |= dbus_message_get_type(msg) == DBUS_MESSAGE_TYPE_SIGNAL;
+			dbus_message_unref(msg);
+		}
+
+		if (changed)
+			show(findadapter(conn, NULL));
+	}
+
+	return 1;
+}
+
 int
 main(void)
 {
@@ -210,17 +274,13 @@ main(void)
 		{ 2, on_middle },
 	};
 
-	int state;
-
 	set_name("statusblocks-bluetooth");
 
+	if (persistent())
+		return watch();
+
 	dispatch(buttons, LEN(buttons), NULL);
-
-	state = getbtstate();
-	if (state < 0)
-		state = 0;
-
-	emit("bt", icons_bluetooth[state ? 1 : 0], ascii_bluetooth[state ? 1 : 0]);
+	show(getbtstate());
 
 	return 0;
 }

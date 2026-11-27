@@ -1,5 +1,8 @@
 /* See LICENSE file for copyright and license details. */
 
+#define _POSIX_C_SOURCE 200809L
+
+#include <errno.h>
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -316,31 +319,19 @@ on_left(void *ctx)
 	notify(head, body, "calendar");
 }
 
-int
-main(void)
+static void
+show(void)
 {
-	static const struct Button buttons[] = {
-		{ 1, on_left },
-	};
+	struct timespec ts;
+	struct tm       lt;
+	char            text[32];
+	char            rich[64];
 
-	struct tm *lt = NULL;
-	time_t     ct = 0;
-	char       text[32];
-	char       rich[64];
-
-	set_name("statusblocks-date");
-
-	/* Month and weekday names in the calendar follow the user's locale. */
-	setlocale(LC_TIME, "");
-
-
-	dispatch(buttons, LEN(buttons), NULL);
-
-	ct = time(NULL);
-	lt = localtime(&ct);
-
-	if (lt) {
-		snprintf(text, sizeof(text), "%02d/%02d", lt->tm_mday, lt->tm_mon + 1);
+	/* time() reads a coarse clock that can still be in the previous
+	 * day right after main() wakes at midnight. */
+	clock_gettime(CLOCK_REALTIME, &ts);
+	if (localtime_r(&ts.tv_sec, &lt)) {
+		snprintf(text, sizeof(text), "%02d/%02d", lt.tm_mday, lt.tm_mon + 1);
 	} else {
 		warn("localtime:");
 		snprintf(text, sizeof(text), "--/--");
@@ -348,6 +339,42 @@ main(void)
 
 	snprintf(rich, sizeof(rich), "%s%s", icon_date, text);
 	emit("date", rich, text);
+}
 
-	return 0;
+int
+main(void)
+{
+	static const struct Button buttons[] = {
+		{ 1, on_left },
+	};
+
+	struct timespec next = { 0, 0 };
+	struct tm       lt;
+	time_t          now;
+
+	set_name("statusblocks-date");
+
+	/* Month and weekday names in the calendar follow the user's locale. */
+	setlocale(LC_TIME, "");
+
+	if (!persistent()) {
+		dispatch(buttons, LEN(buttons), NULL);
+		show();
+		return 0;
+	}
+
+	for (;;) {
+		show();
+
+		now = time(NULL);
+		if (!localtime_r(&now, &lt))
+			return 1;
+		lt.tm_mday++;
+		lt.tm_hour = lt.tm_min = lt.tm_sec = 0;
+		lt.tm_isdst = -1;
+		next.tv_sec = mktime(&lt);
+
+		while (clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &next, NULL) == EINTR)
+			;
+	}
 }

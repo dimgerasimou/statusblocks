@@ -108,8 +108,11 @@ tied to pacman. Set `cmd_updates_primary`, `cmd_updates_secondary` and
 `update_watch_path`; apt, dnf and xbps equivalents are in the comments.
 
 Counts are cached for `update_cache_ttl` seconds, and invalidated as soon as
-`update_watch_path` changes. That is how the count drops to zero right after an
-upgrade instead of at the next tick:
+`update_watch_path` changes. Run persistently, the block watches that path
+itself and recounts once a transaction settles, so the count drops right after
+an upgrade with no hook; it also recounts every `update_cache_ttl` seconds,
+including time spent suspended. Run on an interval, pair it with this hook so
+the count drops right after an upgrade instead of at the next tick:
 
 ```ini
 [Trigger]
@@ -134,11 +137,14 @@ of the field format. They never abort while drawing: a failure warns on stderr
 and prints a placeholder, because a block that exits silently leaves stale text in the bar.
 Run a block by hand in a terminal to see those warnings, dwmblocks discards them.
 
-`volume`, `keyboard` and `time` can also run persistently (set `Persist` for
-them in dwmasyncblocks' `config.h`). With `BLOCK_PERSIST=1` they stay
-running and print a line on every change: volume subscribes to the sound
-server, keyboard waits for XKB layout events, and time sleeps until the next
-minute. Use `persistent()` from `utils.h` to add the same mode to a block;
+`volume`, `keyboard`, `time`, `date`, `battery`, `bluetooth` and `updates` can
+also run persistently (set `Persist` for them in dwmasyncblocks' `config.h`).
+With `BLOCK_PERSIST=1` they stay running and print a line on every change:
+volume subscribes to the sound server, keyboard waits for XKB layout events,
+time and date sleep until the next minute and midnight, battery listens for
+kernel `power_supply` uevents (and rechecks every minute, since not every
+battery reports capacity steps), bluetooth follows BlueZ's adapter signals,
+and updates watches the package database and its own cache. Use `persistent()` from `utils.h` to add the same mode to a block;
 `emit()` already skips unchanged lines. Exit on an unrecoverable error, such
 as a lost connection, and dwmblocks restarts the block. Clicks still arrive
 as a separate one-shot run, so keep the button handling in that path.

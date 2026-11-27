@@ -2,11 +2,16 @@
 
 #define _POSIX_C_SOURCE 200809L
 
+#include <errno.h>
 #include <limits.h>
+#include <poll.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/inotify.h>
 #include <sys/stat.h>
+#include <sys/timerfd.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -15,6 +20,9 @@
 #define BODY_SIZE  128
 #define CACHE_NAME "statusblocks-updates"
 #define LEN(a)     (sizeof(a) / sizeof((a)[0]))
+
+/* A transaction touches the database many times; recount once it settles. */
+#define SETTLE_MS  2000
 
 #include "utils.h"
 #include "config.h"
@@ -220,27 +228,14 @@ on_right(void *ctx)
 	execute_term((char **)args_update_cmd);
 }
 
-int
-main(void)
+static void
+show(const struct Updates *u)
 {
-	static const struct Button buttons[] = {
-		{ 1, on_left },
-		{ 3, on_right },
-	};
+	char rich[64] = "";
+	char plain[64] = "";
 
-	struct Updates u = { -1, -1 };
-	char           rich[64] = "";
-	char           plain[64] = "";
-
-	set_name("statusblocks-updates");
-
-	dispatch(buttons, LEN(buttons), &u);
-
-	if (u.primary < 0 || u.secondary < 0)
-		getcounts(&u);
-
-	if (u.primary > 0 || u.secondary > 0) {
-		int total = u.primary + u.secondary;
+	if (u->primary > 0 || u->secondary > 0) {
+		int total = u->primary + u->secondary;
 
 		if (show_update_count) {
 			snprintf(rich, sizeof(rich), "%s %d", icon_updates, total);
@@ -252,6 +247,111 @@ main(void)
 	}
 
 	emit("sys_pkg", rich, plain);
+}
+
+/*
+ * Recounts when the package database settles after a change and every
+ * update_cache_ttl seconds; CLOCK_BOOTTIME so time suspended counts. The
+ * cache file is watched too, so a click's refresh reaches the bar.
+ */
+static int
+watch(void)
+{
+	const long        period = update_cache_ttl > 0 ? update_cache_ttl : 3600;
+	struct itimerspec its = { { period, 0 }, { period, 0 } };
+	struct Updates    u = { -1, -1 };
+	struct pollfd     pfd[2] = { { .events = POLLIN }, { .events = POLLIN } };
+	char              cache[PATH_MAX];
+	_Alignas(struct inotify_event) char buf[4096];
+	const char       *cachename = NULL;
+	int               dbwd = -1, cachewd = -1, settling = 0;
+
+	pfd[0].fd = inotify_init1(IN_CLOEXEC | IN_NONBLOCK);
+	pfd[1].fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK);
+	if (pfd[0].fd < 0 || pfd[1].fd < 0) {
+		warn("inotify/timerfd:");
+		return 1;
+	}
+	timerfd_settime(pfd[1].fd, 0, &its, NULL);
+
+	if (update_watch_path[0]) {
+		dbwd = inotify_add_watch(pfd[0].fd, update_watch_path,
+		                         IN_CREATE | IN_DELETE | IN_MOVED_FROM | IN_MOVED_TO);
+		if (dbwd < 0)
+			warn("inotify_add_watch(%s):", update_watch_path);
+	}
+
+	if (update_cache_ttl > 0 && cachepath(cache, sizeof(cache)) == 0) {
+		char *slash = strrchr(cache, '/');
+
+		*slash = '\0';
+		cachename = slash + 1;
+		cachewd = inotify_add_watch(pfd[0].fd, cache, IN_MOVED_TO);
+		*slash = '/';
+	}
+
+	getcounts(&u);
+	show(&u);
+
+	for (;;) {
+		int     n = poll(pfd, LEN(pfd), settling ? SETTLE_MS : -1);
+		ssize_t len;
+
+		if (n < 0) {
+			if (errno == EINTR)
+				continue;
+			warn("poll:");
+			return 1;
+		}
+
+		if (n == 0 || (pfd[1].revents & POLLIN)) {
+			uint64_t expirations;
+
+			if (read(pfd[1].fd, &expirations, sizeof(expirations)) < 0 && errno != EAGAIN)
+				warn("timerfd read:");
+			settling = 0;
+			refresh(&u);
+			show(&u);
+			continue;
+		}
+
+		while ((len = read(pfd[0].fd, buf, sizeof(buf))) > 0) {
+			for (char *p = buf; p < buf + len;) {
+				const struct inotify_event *ev = (const struct inotify_event *)p;
+
+				if (ev->wd == dbwd) {
+					settling = 1;
+				} else if (ev->wd == cachewd && ev->len && !strcmp(ev->name, cachename)
+				           && cacheload(cache, &u) == 0) {
+					show(&u);
+				}
+				p += sizeof(*ev) + ev->len;
+			}
+		}
+	}
+}
+
+int
+main(void)
+{
+	static const struct Button buttons[] = {
+		{ 1, on_left },
+		{ 3, on_right },
+	};
+
+	struct Updates u = { -1, -1 };
+
+	set_name("statusblocks-updates");
+
+	if (persistent())
+		return watch();
+
+	dispatch(buttons, LEN(buttons), &u);
+
+	if (u.primary < 0 || u.secondary < 0)
+		getcounts(&u);
+
+	show(&u);
 
 	return 0;
 }

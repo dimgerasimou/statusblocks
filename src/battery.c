@@ -3,9 +3,14 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <dirent.h>
+#include <errno.h>
+#include <linux/netlink.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #define BATTERY_C
 
@@ -16,6 +21,11 @@
 
 #define LEN(a)    (sizeof(a) / sizeof((a)[0]))
 #define BODY_SIZE 256
+
+/* Not every battery reports capacity steps as uevents. */
+#ifndef BATTERY_POLL_MS
+#define BATTERY_POLL_MS 60000
+#endif
 
 
 #if defined(POWERPROFILE) || defined(GPU_PROFILE)
@@ -216,8 +226,8 @@ ascii_format(char *out, const size_t outsz, const unsigned int cap, const int ch
 		warn("battery ascii string truncated");
 }
 
-int
-main(void)
+static void
+show(struct Status *s)
 {
 	/* Colour per icon index, parallel to icons_battery in config.h. */
 	static const char *const icon_colors[] = {
@@ -225,18 +235,11 @@ main(void)
 		"bat_nrm", "bat_nrm", "bat_chg"
 	};
 
-	static const struct Button buttons[] = {
-		{ 1, on_left },
-	};
-
-	struct Status s;
-	char          base[PATH_MAX];
-	char          st[64];
-	char          text[16];
-	size_t        i;
-	int           charging;
-
-	set_name("statusblocks-battery");
+	static char base[PATH_MAX];
+	static char st[64];
+	char        text[16];
+	size_t      i;
+	int         charging;
 
 	if (getbatterypath(base, sizeof(base)) != 0) {
 		/*
@@ -244,22 +247,98 @@ main(void)
 		 * empty state rather than leaving the bar blank.
 		 */
 		emit(icon_colors[0], icons_battery[0], ascii_bat_none);
-		return 0;
+		s->st = NULL;
+		return;
 	}
 
-	s.cap = getcapacity(base);
+	s->cap = getcapacity(base);
 	getstatus(base, st, sizeof(st));
-	s.st = st;
-
-	dispatch(buttons, LEN(buttons), &s);
+	s->st = st;
 
 	charging = (strcmp(st, "Charging") == 0);
-	i = charging ? 5 : battery_icon_index(s.cap);
+	i = charging ? 5 : battery_icon_index(s->cap);
 	if (i >= LEN(icons_battery))
 		i = 0;
 
-	ascii_format(text, sizeof(text), s.cap, charging);
+	ascii_format(text, sizeof(text), s->cap, charging);
 	emit(icon_colors[i], icons_battery[i], text);
+}
+
+/* Kernel uevents on the netlink socket; only power_supply ones matter. */
+static int
+ispowersupply(const char *msg, size_t len)
+{
+	for (size_t i = 0; i < len; i += strlen(msg + i) + 1)
+		if (strcmp(msg + i, "SUBSYSTEM=power_supply") == 0)
+			return 1;
+	return 0;
+}
+
+static int
+openuevents(void)
+{
+	struct sockaddr_nl sa = { .nl_family = AF_NETLINK, .nl_groups = 1 };
+	int                fd;
+
+	fd = socket(AF_NETLINK, SOCK_DGRAM | SOCK_CLOEXEC, NETLINK_KOBJECT_UEVENT);
+	if (fd < 0 || bind(fd, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
+		warn("uevent socket:");
+		if (fd >= 0)
+			close(fd);
+		return -1;
+	}
+	return fd;
+}
+
+static int
+watch(void)
+{
+	struct Status s;
+	struct pollfd pfd = { .events = POLLIN };
+	char          msg[4096];
+
+	/* Without uevents the poll timeout alone keeps the block current. */
+	pfd.fd = openuevents();
+
+	for (;;) {
+		show(&s);
+
+		for (;;) {
+			int n = poll(&pfd, 1, BATTERY_POLL_MS);
+			ssize_t len;
+
+			if (n < 0 && errno != EINTR)
+				return 1;
+			if (n <= 0)
+				break;
+
+			len = recv(pfd.fd, msg, sizeof(msg) - 1, 0);
+			if (len <= 0)
+				continue;
+			msg[len] = '\0';
+			if (ispowersupply(msg, (size_t)len))
+				break;
+		}
+	}
+}
+
+int
+main(void)
+{
+	static const struct Button buttons[] = {
+		{ 1, on_left },
+	};
+
+	struct Status s;
+
+	set_name("statusblocks-battery");
+
+	if (persistent())
+		return watch();
+
+	show(&s);
+	if (s.st)
+		dispatch(buttons, LEN(buttons), &s);
 
 	return 0;
 }
