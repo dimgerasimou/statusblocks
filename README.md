@@ -17,16 +17,16 @@ They are clickable and configured in a single `config.h`.
 | `memory` | memory in use | **R** task manager | htop |
 | `updates` | pending updates, hidden when there are none | **L** notification with per-source counts · **R** system upgrade | package manager |
 | `kernel` | kernel release | — | — |
-| `volume` | volume, muted state | **L** sink and source info · **M** equalizer · **R** mute · **scroll** volume | libpulse, a volume script |
-| `keyboard` | current layout | **L** next layout | a layout script |
+| `volume` | volume, muted state | **L** sink and source info · **M** equalizer · **R** mute · **scroll** volume ±5% | libpulse |
+| `keyboard` | current layout | **L** next layout | — |
 | `bluetooth` | adapter state | **L** TUI · **M** toggle adapter | bluez, bluetuith |
 | `internet` | connection type, wifi strength | **L** MAC, IPv4, gateway, IPv6, SSID, signal · **R** menu: toggle wifi, connect, TUI | NetworkManager, xmenu |
 | `power` | a button | **L** menu: shutdown, reboot, logout, lock, restart the bar, power and GPU profiles | xmenu, slock |
 
-Blocks that need a script of your own (volume, keyboard, wifi connect) default to
-helpers from [dimgerasimou/binaries](https://github.com/dimgerasimou/binaries).
-Any executable taking the same arguments works: a `wpctl` or `setxkbmap` wrapper
-is fine. A missing program does not break the block, only the click.
+The wifi connect entry needs a script of your own and defaults to a helper from
+[dimgerasimou/binaries](https://github.com/dimgerasimou/binaries); any executable
+taking the same arguments works. A missing program does not break the block, only
+the click. Volume and layout changes are done by the blocks themselves.
 
 The `battery` block finds the battery itself, no path to configure. The `updates`
 block caches its update counts, so `checkupdates` and `paru` do not run on every

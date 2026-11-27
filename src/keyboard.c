@@ -2,7 +2,6 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -70,19 +69,33 @@ nth_csv_token_dup(const char *s, unsigned int n)
 	return NULL;
 }
 
+/* Locks the next group, wrapping, as a grp:*_toggle option would. */
 static void
 on_left(void *ctx)
 {
-	char path[PATH_MAX];
+	XkbRF_VarDefsRec vd = {0};
+	XkbStateRec      state;
+	Display         *dpy;
+	unsigned int     n = 1;
 
 	(void)ctx;
 
-	if (envexpand(path_language_switch, path, sizeof(path)) != 0) {
-		warn("failed to expand the language switch path");
+	if (!(dpy = XOpenDisplay(NULL))) {
+		warn("XOpenDisplay() failed");
 		return;
 	}
 
-	executepath(path, (char **)args_language_switch);
+	if (XkbGetState(dpy, XkbUseCoreKbd, &state) == Success
+	    && XkbRF_GetNamesProp(dpy, NULL, &vd) && vd.layout) {
+		for (const char *p = vd.layout; *p; p++)
+			n += *p == ',';
+		XkbLockGroup(dpy, XkbUseCoreKbd, ((unsigned int)state.locked_group + 1) % n);
+	} else {
+		warn("failed to read the keyboard state");
+	}
+
+	XkbRF_FreeVarDefs_Local(&vd);
+	XCloseDisplay(dpy);
 }
 
 static void

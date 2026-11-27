@@ -2,7 +2,6 @@
 
 #define _POSIX_C_SOURCE 200809L
 
-#include <limits.h>
 #include <pulse/pulseaudio.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +26,8 @@ enum AudioIndex {
 	AI_COUNT
 };
 
+enum { OP_MUTE, OP_UP, OP_DOWN };
+
 
 static pa_mainloop *ml = NULL;
 static pa_context *pactx = NULL;
@@ -45,7 +46,91 @@ static void quitml(AudioInfo *a);
 static void show(const AudioInfo *a);
 static void subscribecb(pa_context *c, pa_subscription_event_type_t t, uint32_t idx, void *userdata);
 static int  watch(AudioInfo *a);
-static void runvolumecmd(const char *const *args);
+static void changesink(int op);
+static void changesinkcb(pa_context *c, const pa_sink_info *i, int eol, void *userdata);
+static void changectxcb(pa_context *c, void *userdata);
+static void donecb(pa_context *c, int success, void *userdata);
+
+static void
+changectxcb(pa_context *c, void *userdata)
+{
+	pa_operation *o;
+
+	switch (pa_context_get_state(c)) {
+	case PA_CONTEXT_READY:
+		o = pa_context_get_sink_info_by_name(c, "@DEFAULT_SINK@", changesinkcb, userdata);
+		if (o)
+			pa_operation_unref(o);
+		else
+			pa_mainloop_quit(ml, 1);
+		break;
+
+	case PA_CONTEXT_FAILED:
+	case PA_CONTEXT_TERMINATED:
+		pa_mainloop_quit(ml, 1);
+		break;
+
+	default:
+		break;
+	}
+}
+
+static void
+changesink(int op)
+{
+	if (initpa() != 0) {
+		freepa();
+		return;
+	}
+
+	pa_context_set_state_callback(pactx, changectxcb, &op);
+	if (pa_context_connect(pactx, NULL, PA_CONTEXT_NOFLAGS, NULL) < 0)
+		warn("pa_context_connect() failed");
+	else
+		pa_mainloop_run(ml, NULL);
+
+	freepa();
+}
+
+static void
+changesinkcb(pa_context *c, const pa_sink_info *i, int eol, void *userdata)
+{
+	const pa_volume_t step = (pa_volume_t)((uint64_t)PA_VOLUME_NORM * volume_step / 100);
+	const pa_volume_t max  = (pa_volume_t)((uint64_t)PA_VOLUME_NORM * volume_max / 100);
+	pa_operation     *o = NULL;
+	pa_cvolume        cv;
+
+	if (eol > 0)
+		return;
+
+	if (!i) {
+		warn("no default sink");
+		pa_mainloop_quit(ml, 1);
+		return;
+	}
+
+	cv = i->volume;
+
+	switch (*(int *)userdata) {
+	case OP_MUTE:
+		o = pa_context_set_sink_mute_by_index(c, i->index, !i->mute, donecb, NULL);
+		break;
+	case OP_UP:
+		if (pa_cvolume_max(&cv) < max)
+			pa_cvolume_inc_clamp(&cv, step, max);
+		o = pa_context_set_sink_volume_by_index(c, i->index, &cv, donecb, NULL);
+		break;
+	case OP_DOWN:
+		pa_cvolume_dec(&cv, step);
+		o = pa_context_set_sink_volume_by_index(c, i->index, &cv, donecb, NULL);
+		break;
+	}
+
+	if (o)
+		pa_operation_unref(o);
+	else
+		pa_mainloop_quit(ml, 1);
+}
 
 static void
 contextcb(pa_context *c, void *userdata)
@@ -87,35 +172,37 @@ on_middle(void *ctx)
 	execute((char **)args_eqalizer);
 }
 
-/* Buttons 3-5 all invoke the volume control script with different arguments. */
-static void
-runvolumecmd(const char *const *args)
-{
-	char path[PATH_MAX];
-
-	if (envexpand(path_volume_control, path, sizeof(path)) == 0)
-		executepath(path, (char **)args);
-}
 
 static void
 on_mute(void *ctx)
 {
-	(void)ctx;
-	runvolumecmd(args_volume_mute);
+	changesink(OP_MUTE);
+	getaudioinfo(ctx);
 }
 
 static void
 on_up(void *ctx)
 {
-	(void)ctx;
-	runvolumecmd(args_volume_increase);
+	changesink(OP_UP);
+	getaudioinfo(ctx);
 }
 
 static void
 on_down(void *ctx)
 {
-	(void)ctx;
-	runvolumecmd(args_volume_decrase);
+	changesink(OP_DOWN);
+	getaudioinfo(ctx);
+}
+
+static void
+donecb(pa_context *c, int success, void *userdata)
+{
+	(void)c;
+	(void)userdata;
+
+	if (!success)
+		warn("changing the default sink failed");
+	pa_mainloop_quit(ml, 0);
 }
 
 static void

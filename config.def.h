@@ -272,16 +272,6 @@ static const char icon_kernel[] = "";
  * ============================================================ */
 #ifdef KEYBOARD_C
 
-/*
- * Keyboard layout switching script, run on left click.
- * Requires: a script of your own that cycles the layout. The default
- * points at dwm-xkbnext from https://github.com/dimgerasimou/binaries
- * A plain alternative: setxkbmap with your layouts, wrapped in a script.
- */
-static const char path_language_switch[] = "~/.local/bin/dwm-xkbnext";
-const char *args_language_switch[] = { "dwm-xkbnext", NULL };
-
-
 /* Icon shown before the keyboard layout in icon mode. */
 static const char icon_keyboard[] = " ";
 #endif
@@ -506,18 +496,9 @@ const unsigned int volume_padding = 1;
 /* Audio equalizer application */
 const char *args_eqalizer[]        = {"easyeffects", NULL};
 
-/* Volume control script and arguments */
-const char *args_volume_increase[] = {"audio-ctl", "up", NULL};
-const char *args_volume_decrase[]  = {"audio-ctl", "down", NULL};
-const char *args_volume_mute[]     = {"audio-ctl", "mute", NULL};
-/*
- * Volume control script, run on middle click and scroll.
- * Requires: a script of your own accepting "up", "down" and "mute". The
- * default points at audio-ctl from https://github.com/dimgerasimou/binaries
- * A plain alternative: a wrapper around wpctl or pamixer.
- */
-static const char path_volume_control[] = "~/.local/bin/audio-ctl";
-
+/* Scroll step and the ceiling scrolling up stops at, in percent */
+const unsigned int volume_step = 5;
+const unsigned int volume_max  = 100;
 
 /* Bar icons: [0] muted, [1] low, [2] medium, [3] high, [4] no sink. */
 static const char *const icons_volume[] = {
