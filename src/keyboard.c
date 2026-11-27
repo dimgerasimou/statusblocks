@@ -85,27 +85,13 @@ on_left(void *ctx)
 	executepath(path, (char **)args_language_switch);
 }
 
-int
-main(void)
+static void
+show(Display *dpy)
 {
-	static const struct Button buttons[] = {
-		{ 1, on_left },
-	};
-
-	Display *dpy = NULL;
-	XkbStateRec state;
+	XkbStateRec      state;
 	XkbRF_VarDefsRec vd = {0};
-	char *layout = NULL;
-
-	set_name("statusblocks-keyboard");
-
-	dispatch(buttons, LEN(buttons), NULL);
-
-	dpy = XOpenDisplay(NULL);
-	if (!dpy) {
-		warn("XOpenDisplay() failed");
-		goto cleanup;
-	}
+	char            *layout = NULL;
+	char             rich[64];
 
 	if (XkbGetState(dpy, XkbUseCoreKbd, &state) != Success) {
 		warn("XkbGetState() failed");
@@ -123,18 +109,77 @@ main(void)
 		goto cleanup;
 	}
 
-	{
-		char rich[64];
-
-		snprintf(rich, sizeof(rich), "%s%s", icon_keyboard, layout);
-		emit("kbd", rich, layout);
-	}
+	snprintf(rich, sizeof(rich), "%s%s", icon_keyboard, layout);
+	emit("kbd", rich, layout);
 
 cleanup:
 	free(layout);
 	XkbRF_FreeVarDefs_Local(&vd);
-	if (dpy)
+}
+
+/*
+ * Group switches arrive as XkbStateNotify; setxkbmap rewrites the layout
+ * list in _XKB_RULES_NAMES and sends a new keymap. A lost X connection
+ * exits through Xlib's IO error handler, and dwmblocks restarts the block.
+ */
+static int
+watch(Display *dpy)
+{
+	Atom   names;
+	XEvent ev;
+	int    xkbevent;
+
+	if (!XkbQueryExtension(dpy, NULL, &xkbevent, NULL, NULL, NULL)) {
+		warn("XkbQueryExtension() failed");
+		return 1;
+	}
+
+	names = XInternAtom(dpy, "_XKB_RULES_NAMES", False);
+	XSelectInput(dpy, DefaultRootWindow(dpy), PropertyChangeMask);
+	XkbSelectEventDetails(dpy, XkbUseCoreKbd, XkbStateNotify,
+	                      XkbGroupStateMask, XkbGroupStateMask);
+	XkbSelectEvents(dpy, XkbUseCoreKbd, XkbNewKeyboardNotifyMask,
+	                XkbNewKeyboardNotifyMask);
+
+	for (;;) {
+		show(dpy);
+		do {
+			XNextEvent(dpy, &ev);
+		} while (ev.type != xkbevent
+		         && !(ev.type == PropertyNotify && ev.xproperty.atom == names));
+	}
+}
+
+int
+main(void)
+{
+	static const struct Button buttons[] = {
+		{ 1, on_left },
+	};
+
+	Display *dpy;
+	int      ret = 0;
+
+	set_name("statusblocks-keyboard");
+
+	if (persistent()) {
+		if (!(dpy = XOpenDisplay(NULL))) {
+			warn("XOpenDisplay() failed");
+			return 1;
+		}
+		ret = watch(dpy);
 		XCloseDisplay(dpy);
+		return ret;
+	}
+
+	dispatch(buttons, LEN(buttons), NULL);
+
+	if (!(dpy = XOpenDisplay(NULL))) {
+		warn("XOpenDisplay() failed");
+		return 0;
+	}
+	show(dpy);
+	XCloseDisplay(dpy);
 
 	return 0;
 }

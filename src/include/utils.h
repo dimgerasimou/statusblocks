@@ -51,9 +51,18 @@ void dispatch(const struct Button *buttons, const size_t n, void *ctx);
 
 /*
  * Prints the block's status line for dwmblocks: 'rich' is shown in icon
- * mode, 'plain' otherwise, coloured by class 'cls' (may be NULL).
+ * mode, 'plain' otherwise, coloured by class 'cls' (may be NULL). Output is
+ * flushed, and a line identical to the previous one is not printed again.
  */
 void emit(const char *cls, const char *rich, const char *plain);
+
+/*
+ * Returns 1 when dwmblocks runs the block persistently (BLOCK_PERSIST=1):
+ * it should then loop, calling emit() on every change, and exit on an
+ * unrecoverable error so dwmblocks restarts it. Also arranges for the
+ * block to die with dwmblocks.
+ */
+int persistent(void);
 
 /*
  * Forks and execs 'args' in a new session, searching PATH for args[0].

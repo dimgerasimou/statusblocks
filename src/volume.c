@@ -31,6 +31,7 @@ enum AudioIndex {
 static pa_mainloop *ml = NULL;
 static pa_context *pactx = NULL;
 static pa_mainloop_api *mlapi = NULL;
+static int persist = 0;
 
 static void contextcb(pa_context *c, void *userdata);
 static void freepa(void);
@@ -40,7 +41,10 @@ static void propnotify(const AudioInfo *a);
 static void servercb(pa_context *c, const pa_server_info *i, void *userdata);
 static void sinkcb(pa_context *c, const pa_sink_info *i, int eol, void *userdata);
 static void sourcecb(pa_context *c, const pa_source_info *i, int eol, void *userdata);
-static void quitml(const AudioInfo *a);
+static void quitml(AudioInfo *a);
+static void show(const AudioInfo *a);
+static void subscribecb(pa_context *c, pa_subscription_event_type_t t, uint32_t idx, void *userdata);
+static int  watch(AudioInfo *a);
 static void runvolumecmd(const char *const *args);
 
 static void
@@ -50,6 +54,12 @@ contextcb(pa_context *c, void *userdata)
 
 	switch (pa_context_get_state(c)) {
 	case PA_CONTEXT_READY:
+		if (persist) {
+			pa_context_set_subscribe_callback(c, subscribecb, userdata);
+			if ((o = pa_context_subscribe(c, PA_SUBSCRIPTION_MASK_SINK
+			                              | PA_SUBSCRIPTION_MASK_SERVER, NULL, NULL)))
+				pa_operation_unref(o);
+		}
 		if ((o = pa_context_get_server_info(c, servercb, userdata)))
 			pa_operation_unref(o);
 		break;
@@ -266,24 +276,23 @@ sourcecb(pa_context *c, const pa_source_info *i, int eol, void *userdata)
 }
 
 static void
-quitml(const AudioInfo *a)
+quitml(AudioInfo *a)
 {
-	if (a[AI_SINK].done && a[AI_SOURCE].done)
+	if (!a[AI_SINK].done || !a[AI_SOURCE].done)
+		return;
+
+	if (!persist) {
 		pa_mainloop_quit(ml, 0);
+		return;
+	}
+
+	show(a);
+	a[AI_SINK].done = a[AI_SOURCE].done = 0;
 }
 
-int
-main(void)
+static void
+show(const AudioInfo *a)
 {
-	static const struct Button buttons[] = {
-		{ 1, on_left },
-		{ 2, on_middle },
-		{ 3, on_mute },
-		{ 4, on_up },
-		{ 5, on_down },
-	};
-
-	AudioInfo     a[AI_COUNT] = {{0, 0, 0}, {0, 0, 0}};
 	char          v[16] = "";
 	char          rich[64];
 	char          plain[64];
@@ -293,12 +302,6 @@ main(void)
 	unsigned int  mute;
 	int           pad = volume_padding ? 3 : 0;
 	int           n;
-
-	set_name("statusblocks-volume");
-
-	getaudioinfo(a);
-
-	dispatch(buttons, LEN(buttons), a);
 
 	if (a[AI_SINK].done == 1) {
 		mute   = a[AI_SINK].mute;
@@ -333,6 +336,69 @@ main(void)
 	snprintf(rich, sizeof(rich), "%s%s", ricon, display_type != 1 ? v : "");
 	snprintf(plain, sizeof(plain), "%s%s", picon, mute ? "" : v);
 	emit(mute ? "vol_mut" : "vol_nrm", rich, plain);
+}
+
+static void
+subscribecb(pa_context *c, pa_subscription_event_type_t t, uint32_t idx, void *userdata)
+{
+	pa_operation *o;
+
+	(void)t;
+	(void)idx;
+
+	/* The default sink may have changed too, so start from the server. */
+	if ((o = pa_context_get_server_info(c, servercb, userdata)))
+		pa_operation_unref(o);
+}
+
+/* Returns only when the server connection is lost; dwmblocks restarts us. */
+static int
+watch(AudioInfo *a)
+{
+	int ret = 1;
+
+	persist = 1;
+	if (initpa() != 0) {
+		freepa();
+		return 1;
+	}
+
+	pa_context_set_state_callback(pactx, contextcb, a);
+	if (pa_context_connect(pactx, NULL, PA_CONTEXT_NOFLAGS, NULL) < 0) {
+		warn("pa_context_connect() failed");
+		freepa();
+		return 1;
+	}
+
+	pa_mainloop_run(ml, &ret);
+	freepa();
+
+	return ret ? ret : 1;
+}
+
+int
+main(void)
+{
+	static const struct Button buttons[] = {
+		{ 1, on_left },
+		{ 2, on_middle },
+		{ 3, on_mute },
+		{ 4, on_up },
+		{ 5, on_down },
+	};
+
+	AudioInfo a[AI_COUNT] = {{0, 0, 0}, {0, 0, 0}};
+
+	set_name("statusblocks-volume");
+
+	if (persistent())
+		return watch(a);
+
+	getaudioinfo(a);
+
+	dispatch(buttons, LEN(buttons), a);
+
+	show(a);
 
 	return 0;
 }

@@ -6,10 +6,12 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -529,25 +531,53 @@ dispatch(const struct Button *buttons, const size_t n, void *ctx)
 	}
 }
 
-static void
-putfield(const char *key, const char *val)
+static size_t
+addfield(char *buf, size_t sz, size_t n, const char *key, const char *val)
 {
-	printf("%s=", key);
-	for (; val && *val; val++)
-		putchar(*val == '\t' || *val == '\n' ? ' ' : *val);
+	if (n && n < sz - 1)
+		buf[n++] = '\t';
+	for (; *key && n < sz - 1; key++)
+		buf[n++] = *key;
+	for (; val && *val && n < sz - 1; val++)
+		buf[n++] = (*val == '\t' || *val == '\n') ? ' ' : *val;
+	buf[n] = '\0';
+	return n;
 }
 
 void
 emit(const char *cls, const char *rich, const char *plain)
 {
-	if (cls && *cls) {
-		putfield("class", cls);
-		putchar('\t');
-	}
-	putfield("rich", rich);
-	putchar('\t');
-	putfield("plain", plain);
-	putchar('\n');
+	static char last[1024];
+	char        line[sizeof(last)];
+	size_t      n = 0;
+
+	line[0] = '\0';
+	if (cls && *cls)
+		n = addfield(line, sizeof(line), n, "class=", cls);
+	n = addfield(line, sizeof(line), n, "rich=", rich);
+	addfield(line, sizeof(line), n, "plain=", plain);
+
+	/* A persistent block reports every event; only changes reach the bar. */
+	if (!strcmp(line, last))
+		return;
+	strcpy(last, line);
+
+	puts(line);
+	fflush(stdout);
+}
+
+int
+persistent(void)
+{
+	const char *env = getenv("BLOCK_PERSIST");
+
+	if (!env || strcmp(env, "1") != 0)
+		return 0;
+
+	prctl(PR_SET_PDEATHSIG, SIGTERM);
+	if (getppid() == 1)
+		exit(EXIT_FAILURE);
+	return 1;
 }
 
 int

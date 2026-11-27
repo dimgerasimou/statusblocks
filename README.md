@@ -134,6 +134,15 @@ of the field format. They never abort while drawing: a failure warns on stderr
 and prints a placeholder, because a block that exits silently leaves stale text in the bar.
 Run a block by hand in a terminal to see those warnings, dwmblocks discards them.
 
+`volume`, `keyboard` and `time` can also run persistently (set `Persist` for
+them in dwmasyncblocks' `config.h`). With `BLOCK_PERSIST=1` they stay
+running and print a line on every change: volume subscribes to the sound
+server, keyboard waits for XKB layout events, and time sleeps until the next
+minute. Use `persistent()` from `utils.h` to add the same mode to a block;
+`emit()` already skips unchanged lines. Exit on an unrecoverable error, such
+as a lost connection, and dwmblocks restarts the block. Clicks still arrive
+as a separate one-shot run, so keep the button handling in that path.
+
 Clicks are a table:
 
 ```c
