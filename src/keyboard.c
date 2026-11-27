@@ -122,7 +122,7 @@ show(Display *dpy)
 		goto cleanup;
 	}
 
-	snprintf(rich, sizeof(rich), "%s%s", icon_keyboard, layout);
+	snprintf(rich, sizeof(rich), "%s %s", icon_keyboard, layout);
 	emit("kbd", rich, layout);
 
 cleanup:

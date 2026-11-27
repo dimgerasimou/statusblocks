@@ -337,7 +337,7 @@ show(void)
 		snprintf(text, sizeof(text), "--/--");
 	}
 
-	snprintf(rich, sizeof(rich), "%s%s", icon_date, text);
+	snprintf(rich, sizeof(rich), "%s %s", icon_date, text);
 	emit("date", rich, text);
 }
 

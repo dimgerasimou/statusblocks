@@ -420,7 +420,7 @@ show(const AudioInfo *a)
 	 * shape; the ASCII tags cannot, so the plain text keeps it. While
 	 * muted, ascii_vol_mute_tag alone already conveys the state.
 	 */
-	snprintf(rich, sizeof(rich), "%s%s", ricon, display_type != 1 ? v : "");
+	snprintf(rich, sizeof(rich), "%s %s", ricon, display_type != 1 ? v : "");
 	snprintf(plain, sizeof(plain), "%s%s", picon, mute ? "" : v);
 	emit(mute ? "vol_mut" : "vol_nrm", rich, plain);
 }

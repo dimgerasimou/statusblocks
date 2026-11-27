@@ -66,12 +66,12 @@ static const char term_title_opt[] = "-t";
 
 /* Status icons, ordered from empty to full; the last is "charging". */
 static const char *const icons_battery[] = {
-	" ",
-	" ",
-	" ",
-	" ",
-	" ",
-	" ",
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
 };
 
 /* Notification icon, a name from the active icon theme. */
@@ -127,7 +127,7 @@ static const int calendar_week_start = 1;
 static const char cal_clr_fallback[] = "#F38BA8";
 
 /* Icon shown before the date in icon mode. */
-static const char icon_date[] = " ";
+static const char icon_date[] = "";
 
 #endif
 
@@ -151,14 +151,14 @@ const char *args_wifi_connect[] = {"wifi-prompt", NULL};
 
 /* Bar icons, indexed by connection state. */
 static const char *const icons_internet[] = {
-	"󰤮 ",  /* 0: no primary connection / unknown */
-	" ",  /* 1: ethernet */
-	"󰤯 ",  /* 2: wifi 0 */
-	"󰤟 ",  /* 3: wifi 1 */
-	"󰤢 ",  /* 4: wifi 2 */
-	"󰤥 ",  /* 5: wifi 3 */
-	"󰤨 ",  /* 6: wifi 4 */
-	"󰤫 ",  /* 7: error */
+	"󰤮",  /* 0: no primary connection / unknown */
+	"",  /* 1: ethernet */
+	"󰤯",  /* 2: wifi 0 */
+	"󰤟",  /* 3: wifi 1 */
+	"󰤢",  /* 4: wifi 2 */
+	"󰤥",  /* 5: wifi 3 */
+	"󰤨",  /* 6: wifi 4 */
+	"󰤫",  /* 7: error */
 };
 
 /*
@@ -273,7 +273,7 @@ static const char icon_kernel[] = "";
 #ifdef KEYBOARD_C
 
 /* Icon shown before the keyboard layout in icon mode. */
-static const char icon_keyboard[] = " ";
+static const char icon_keyboard[] = "";
 #endif
 
 /* ============================================================
@@ -286,7 +286,7 @@ const char *args_task_manager[] = { term_cmd, "sh", "-c", "htop", NULL };
 
 
 /* Icon shown before the memory usage in icon mode. */
-static const char icon_memory[] = " ";
+static const char icon_memory[] = "";
 #endif
 
 /* ============================================================
@@ -309,7 +309,7 @@ const char *args_clipboard_delete[] = {"sh", "-c", "clipdel -d \".*\"", NULL};
 
 
 /* Bar icon. */
-static const char icon_power[] = " ";
+static const char icon_power[] = "";
 
 /* Plain-ASCII text for icon_power, used in ASCII mode. */
 static const char ascii_power[] = "PWR";
@@ -474,7 +474,7 @@ static const struct PowerProfileMode power_profile_modes[] = {
 #ifdef TIME_C
 
 /* Icon shown before the time in icon mode. */
-static const char icon_time[] = " ";
+static const char icon_time[] = "";
 #endif
 
 
@@ -502,10 +502,10 @@ const unsigned int volume_max  = 100;
 
 /* Bar icons: [0] muted, [1] low, [2] medium, [3] high, [4] no sink. */
 static const char *const icons_volume[] = {
-	" ",
-	" ",
-	" ",
-	" ",
+	"",
+	"",
+	"",
+	"",
 	"",
 };
 

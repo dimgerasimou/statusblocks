@@ -37,7 +37,7 @@ show(void)
 		snprintf(text, sizeof(text), "--:--");
 	}
 
-	snprintf(rich, sizeof(rich), "%s%s", icon_time, text);
+	snprintf(rich, sizeof(rich), "%s %s", icon_time, text);
 	emit("tim", rich, text);
 }
 

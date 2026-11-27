@@ -85,7 +85,7 @@ main(void)
 	else
 		snprintf(text, sizeof(text), "%.1fGiB", (double)used_kib / 1024.0 / 1024.0);
 
-	snprintf(rich, sizeof(rich), "%s%s", icon_memory, text);
+	snprintf(rich, sizeof(rich), "%s %s", icon_memory, text);
 	emit("mem", rich, text);
 
 	return 0;
