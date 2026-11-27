@@ -14,11 +14,11 @@
  *   bluetooth  BlueZ adapter signals
  *   updates    recounts once a pacman transaction settles, and every
  *              update_cache_ttl seconds; no pacman hook needed
+ *   internet   NetworkManager: connection, access point, signal strength
  *
  * The rest poll:
  *
  *   memory     10  a plain read of /proc/meminfo
- *   internet   10  cheap, and the signal strength moves
  *   kernel      0  changes only on reboot
  *   power       0  a button, never updates on its own
  *
@@ -35,7 +35,7 @@
 
 const Block blocks[] = {
 	/*Command             Update Interval   Update Signal   Icons   Persist */
-	{ BLOCK("internet"),  10,               1,              1,      0 },
+	{ BLOCK("internet"),  0,                1,              1,      1 },
 	{ BLOCK("bluetooth"), 0,                2,              1,      1 },
 	{ BLOCK("memory"),    10,               3,              1,      0 },
 	{ BLOCK("keyboard"),  0,                4,              1,      1 },

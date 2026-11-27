@@ -32,7 +32,7 @@ static const char *const icon_colors[] = {
 /* function definitions */
 static void comapp(NMDevice *dev, GString *str);
 static void ethapp(NMDevice *dev, GString *str);
-static unsigned int getactive(NMClient *c);
+static unsigned int getactive(NMClient *c, NMDeviceWifi **wdev, NMAccessPoint **wap);
 static void nminit(NMClient **c);
 static void printinfo(NMClient *c, const int ind);
 static void togglewifi(NMClient *client);
@@ -148,8 +148,10 @@ on_right(void *ctx)
 	}
 }
 
+/* 'wdev' and 'wap', when non-NULL, receive the Wi-Fi device and access
+ * point behind a wireless primary connection, or NULL. */
 static unsigned int
-getactive(NMClient *c)
+getactive(NMClient *c, NMDeviceWifi **wdev, NMAccessPoint **wap)
 {
 	NMActiveConnection *ac;
 	const GPtrArray *acdev;
@@ -157,6 +159,11 @@ getactive(NMClient *c)
 	unsigned int state;
 	NMDeviceWifi *dev;
 	const char *type;
+
+	if (wdev)
+		*wdev = NULL;
+	if (wap)
+		*wap = NULL;
 
 	ac = nm_client_get_primary_connection(c);
 	if (!ac)
@@ -177,10 +184,14 @@ getactive(NMClient *c)
 		dev = NM_DEVICE_WIFI(g_ptr_array_index(acdev, 0));
 		if (!dev)
 			return 7;
+		if (wdev)
+			*wdev = dev;
 
 		ap = nm_device_wifi_get_active_access_point(dev);
 		if (!ap)
 			return 7;
+		if (wap)
+			*wap = ap;
 
 		/* map 0..100 -> 0..4 */
 		state = (nm_access_point_get_strength(ap) / 20);
@@ -316,6 +327,89 @@ wifiapp(NMDevice *dev, GString *str)
 		g_free(ssid_utf8);
 }
 
+static void
+show(NMClient *c)
+{
+	unsigned int state = c ? clampstate(getactive(c, NULL, NULL)) : 7;
+
+	emit(icon_colors[state], icons_internet[state], ascii_internet[state]);
+}
+
+struct Watch {
+	gpointer obj;
+	gulong   id;
+};
+
+static void changed(GObject *obj, GParamSpec *pspec, gpointer client);
+
+/* Moves 'w' to 'obj' ('signal' on it), dropping the previous one. */
+static void
+rebind(struct Watch *w, gpointer obj, const char *signal, NMClient *client)
+{
+	if (w->obj == obj)
+		return;
+
+	if (w->obj) {
+		g_signal_handler_disconnect(w->obj, w->id);
+		g_object_unref(w->obj);
+	}
+
+	w->obj = obj ? g_object_ref(obj) : NULL;
+	w->id  = obj ? g_signal_connect(obj, signal, G_CALLBACK(changed), client) : 0;
+}
+
+/*
+ * Client-level notifications cover connecting, disconnecting, switching
+ * networks and NetworkManager restarting; roaming and signal strength live
+ * on the current Wi-Fi device and access point, so those are re-bound on
+ * every change.
+ */
+static void
+changed(GObject *obj, GParamSpec *pspec, gpointer client)
+{
+	static struct Watch wdev, wap;
+	NMDeviceWifi       *dev;
+	NMAccessPoint      *ap;
+
+	(void)obj;
+	(void)pspec;
+
+	getactive(client, &dev, &ap);
+	rebind(&wdev, dev, "notify::" NM_DEVICE_WIFI_ACTIVE_ACCESS_POINT, client);
+	rebind(&wap, ap, "notify::" NM_ACCESS_POINT_STRENGTH, client);
+
+	show(client);
+}
+
+static int
+watch(void)
+{
+	static const char *const props[] = {
+		NM_CLIENT_PRIMARY_CONNECTION,
+		NM_CLIENT_NM_RUNNING,
+		NM_CLIENT_ACTIVE_CONNECTIONS,
+	};
+
+	NMClient *client;
+	char      signal[64];
+
+	nminit(&client);
+	if (!client) {
+		show(NULL);
+		return 1;
+	}
+
+	for (size_t i = 0; i < LEN(props); i++) {
+		snprintf(signal, sizeof(signal), "notify::%s", props[i]);
+		g_signal_connect(client, signal, G_CALLBACK(changed), client);
+	}
+
+	changed(NULL, NULL, client);
+	g_main_loop_run(g_main_loop_new(NULL, FALSE));
+
+	return 1;
+}
+
 int
 main(void)
 {
@@ -324,26 +418,24 @@ main(void)
 		{ 3, on_right },
 	};
 
-	struct Context      c = { NULL, 0 };
-	unsigned int        state = 0;
+	struct Context c = { NULL, 0 };
 
 	set_name("statusblocks-internet");
+
+	if (persistent())
+		return watch();
 
 	nminit(&c.client);
 
 	if (c.client) {
-		state   = clampstate(getactive(c.client));
-		c.icind = (int)state;
-
+		c.icind = (int)clampstate(getactive(c.client, NULL, NULL));
 		dispatch(buttons, LEN(buttons), &c);
-
-		g_object_unref(c.client);
-	} else {
-		state = 7;
 	}
 
-	state = clampstate(state);
-	emit(icon_colors[state], icons_internet[state], ascii_internet[state]);
+	show(c.client);
+
+	if (c.client)
+		g_object_unref(c.client);
 
 	return 0;
 }
