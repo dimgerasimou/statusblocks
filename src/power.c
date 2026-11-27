@@ -187,7 +187,7 @@ mainmenu(void)
 
 	case 2:
 		if (getxmenuopt(menu_yes_no) == 1) {
-			pid_t pid = getpidof("/usr/local/bin/dwm");
+			pid_t pid = getpidof("dwm");
 
 			if (pid < 0)
 				warn("failed to get the pid of dwm");
